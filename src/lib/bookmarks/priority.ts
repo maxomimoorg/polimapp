@@ -10,8 +10,8 @@ export const BASE_MARKER_PX = 34;
 export function priorityStyle(priority: number) {
   const p = Math.min(100, Math.max(0, priority));
   for (let i = 0; i < STOPS.length - 1; i++) {
-    const a = STOPS[i];
-    const b = STOPS[i + 1];
+    const a = STOPS[i]!;
+    const b = STOPS[i + 1]!;
     if (p >= a.p && p <= b.p) {
       const t = b.p === a.p ? 0 : (p - a.p) / (b.p - a.p);
       return {
