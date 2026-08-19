@@ -92,3 +92,12 @@ export async function replaceAll(data: AppData, photos: Array<{ id: string; blob
   for (const t of data.tags) await d.put("tags", t);
   for (const p of photos) await d.put("photos", p.blob, p.id);
 }
+
+/** Sostituisce segnalibri, categorie e tag mantenendo le foto. */
+export async function replaceData(data: AppData) {
+  const d = await db();
+  await Promise.all([d.clear("bookmarks"), d.clear("categories"), d.clear("tags")]);
+  for (const b of data.bookmarks) await d.put("bookmarks", b);
+  for (const c of data.categories) await d.put("categories", c);
+  for (const t of data.tags) await d.put("tags", t);
+}

@@ -19,6 +19,8 @@ export interface Bookmark {
   priority: number; // 0..100
   tags: string[];
   photoId: string | null;
+  address: string;
+  locked: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -44,6 +46,8 @@ export function migrateBookmark(
     priority: typeof raw.priority === "number" ? raw.priority : 50,
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     photoId: raw.photoId ?? fromFile,
+    address: raw.address ?? "",
+    locked: raw.locked ?? false,
     createdAt,
     updatedAt: raw.updatedAt ?? createdAt,
   };
