@@ -20,10 +20,17 @@ export async function importBackup(file: File): Promise<AppData> {
   const dataRaw = entries["data.json"];
   if (!dataRaw) throw new Error("File di backup non valido: manca data.json");
   const parsed = JSON.parse(strFromU8(dataRaw)) as Partial<AppData>;
+  const rawBookmarks = (parsed.bookmarks ?? []) as Array<
+    Partial<AppData["bookmarks"][number]> & { id: string; photoFile?: string | null }
+  >;
   const data: AppData = {
-    bookmarks: (parsed.bookmarks ?? []).map(migrateBookmark),
-    categories: parsed.categories ?? [],
-    tags: parsed.tags ?? [],
+    bookmarks: rawBookmarks.filter((b) => b?.id).map(migrateBookmark),
+    categories: (parsed.categories ?? []).map((c) => ({
+      id: c.id,
+      name: c.name ?? "",
+      color: c.color ?? "#9ca3af",
+    })),
+    tags: (parsed.tags ?? []).map((t) => ({ id: t.id, name: t.name ?? "" })),
   };
   const photos: Array<{ id: string; blob: Blob }> = [];
   for (const [name, bytes] of Object.entries(entries)) {

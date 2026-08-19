@@ -1,9 +1,50 @@
 import { useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronDown, Pencil, X } from "lucide-react";
 import { PhotoEditor } from "./PhotoEditor";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import type { Bookmark } from "@/lib/bookmarks/types";
 import { priorityStyle } from "@/lib/bookmarks/priority";
+
+function EditRow({
+  name,
+  color,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  color?: string;
+  onSave: (name: string, color?: string) => void;
+  onCancel: () => void;
+}) {
+  const [n, setN] = useState(name);
+  const [c, setC] = useState(color ?? "#e2b714");
+  return (
+    <div className="flex items-center gap-2 px-2 py-2">
+      <input className="panel-input mt-0 flex-1" value={n} onChange={(e) => setN(e.target.value)} />
+      {color !== undefined ? (
+        <input
+          type="color"
+          className="h-8 w-9 rounded border border-white/25 bg-transparent"
+          value={c}
+          onChange={(e) => setC(e.target.value)}
+        />
+      ) : null}
+      <button
+        type="button"
+        className="panel-btn"
+        onClick={() => {
+          if (!n.trim()) return;
+          onSave(n.trim(), color !== undefined ? c : undefined);
+        }}
+      >
+        Salva
+      </button>
+      <button type="button" className="panel-icon-btn" aria-label="Annulla" onClick={onCancel}>
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
 
 export function BookmarkEditor({
   bookmark,
@@ -20,6 +61,10 @@ export function BookmarkEditor({
   const [newCatColor, setNewCatColor] = useState("#e2b714");
   const [creatingTag, setCreatingTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+  const [catOpen, setCatOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [editCatId, setEditCatId] = useState<string | null>(null);
+  const [editTagId, setEditTagId] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -97,29 +142,85 @@ export function BookmarkEditor({
             />
           </label>
 
-          <label className="panel-label">
+          <div className="panel-label">
             Categoria
-            <select
-              className="panel-input"
-              value={creatingCategory ? "__new" : (draft.categoryId ?? "")}
-              onChange={(e) => {
-                if (e.target.value === "__new") {
-                  setCreatingCategory(true);
-                } else {
-                  setCreatingCategory(false);
-                  setDraft((d) => ({ ...d, categoryId: e.target.value || null }));
-                }
-              }}
+            <button
+              type="button"
+              className="panel-input flex items-center gap-2 text-left"
+              onClick={() => setCatOpen((v) => !v)}
             >
-              <option value="">Nessuna categoria</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-              <option value="__new">+ Crea una categoria</option>
-            </select>
-          </label>
+              {draft.categoryId ? (
+                <span
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: store.categoriesById[draft.categoryId]?.color ?? "#9ca3af" }}
+                />
+              ) : null}
+              <span className="flex-1 truncate">
+                {draft.categoryId ? (store.categoriesById[draft.categoryId]?.name ?? "—") : "Nessuna categoria"}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-70" />
+            </button>
+            {catOpen ? (
+              <div className="panel-menu mt-1 max-h-56 overflow-y-auto">
+                <button
+                  type="button"
+                  className="panel-menu-item"
+                  onClick={() => {
+                    setDraft((d) => ({ ...d, categoryId: null }));
+                    setCatOpen(false);
+                  }}
+                >
+                  Nessuna categoria
+                </button>
+                {categories.map((c) =>
+                  editCatId === c.id ? (
+                    <EditRow
+                      key={c.id}
+                      name={c.name}
+                      color={c.color}
+                      onCancel={() => setEditCatId(null)}
+                      onSave={async (name, color) => {
+                        await store.updateCategory({ ...c, name, color: color ?? c.color });
+                        setEditCatId(null);
+                      }}
+                    />
+                  ) : (
+                    <div key={c.id} className="flex items-center">
+                      <button
+                        type="button"
+                        className="panel-menu-item flex-1"
+                        onClick={() => {
+                          setDraft((d) => ({ ...d, categoryId: c.id }));
+                          setCatOpen(false);
+                        }}
+                      >
+                        <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                        <span className="truncate">{c.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Modifica ${c.name}`}
+                        className="px-2 py-2 text-white/70"
+                        onClick={() => setEditCatId(c.id)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ),
+                )}
+                <button
+                  type="button"
+                  className="panel-menu-item border-t border-white/10"
+                  onClick={() => {
+                    setCreatingCategory(true);
+                    setCatOpen(false);
+                  }}
+                >
+                  + Crea una categoria
+                </button>
+              </div>
+            ) : null}
+          </div>
 
           {creatingCategory ? (
             <div className="flex items-end gap-2">
@@ -194,29 +295,65 @@ export function BookmarkEditor({
                 </button>
               ))}
             </div>
-            <select
-              className="panel-input"
-              value=""
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v) return;
-                if (v === "__new") {
-                  setCreatingTag(true);
-                  return;
-                }
-                setDraft((d) => (d.tags.includes(v) ? d : { ...d, tags: [...d.tags, v] }));
-              }}
+            <button
+              type="button"
+              className="panel-input flex items-center gap-2 text-left"
+              onClick={() => setTagOpen((v) => !v)}
             >
-              <option value="">Aggiungi tag…</option>
-              {tags
-                .filter((t) => !draft.tags.includes(t.id))
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              <option value="__new">+ Crea un tag</option>
-            </select>
+              <span className="flex-1">Aggiungi tag…</span>
+              <ChevronDown className="h-4 w-4 opacity-70" />
+            </button>
+            {tagOpen ? (
+              <div className="panel-menu mt-1 max-h-56 overflow-y-auto">
+                {tags.map((t) =>
+                  editTagId === t.id ? (
+                    <EditRow
+                      key={t.id}
+                      name={t.name}
+                      onCancel={() => setEditTagId(null)}
+                      onSave={async (name) => {
+                        await store.updateTag({ ...t, name });
+                        setEditTagId(null);
+                      }}
+                    />
+                  ) : (
+                    <div key={t.id} className="flex items-center">
+                      <button
+                        type="button"
+                        className="panel-menu-item flex-1"
+                        disabled={draft.tags.includes(t.id)}
+                        onClick={() => {
+                          setDraft((d) => (d.tags.includes(t.id) ? d : { ...d, tags: [...d.tags, t.id] }));
+                          setTagOpen(false);
+                        }}
+                      >
+                        <span className={draft.tags.includes(t.id) ? "truncate opacity-40" : "truncate"}>
+                          {t.name}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Modifica ${t.name}`}
+                        className="px-2 py-2 text-white/70"
+                        onClick={() => setEditTagId(t.id)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ),
+                )}
+                <button
+                  type="button"
+                  className="panel-menu-item border-t border-white/10"
+                  onClick={() => {
+                    setCreatingTag(true);
+                    setTagOpen(false);
+                  }}
+                >
+                  + Crea un tag
+                </button>
+              </div>
+            ) : null}
             {creatingTag ? (
               <div className="mt-2 flex gap-2">
                 <input

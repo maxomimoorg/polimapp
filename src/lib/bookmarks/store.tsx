@@ -75,6 +75,18 @@ export function useBookmarkStore() {
     return t;
   }, []);
 
+  const updateCategory = useCallback(async (c: Category) => {
+    await db.putCategory(c);
+    setData((d) => ({ ...d, categories: d.categories.map((x) => (x.id === c.id ? c : x)) }));
+    return c;
+  }, []);
+
+  const updateTag = useCallback(async (t: Tag) => {
+    await db.putTag(t);
+    setData((d) => ({ ...d, tags: d.tags.map((x) => (x.id === t.id ? t : x)) }));
+    return t;
+  }, []);
+
   const savePhoto = useCallback(async (blob: Blob) => {
     const id = uid();
     await db.putPhoto(id, blob);
@@ -109,6 +121,8 @@ export function useBookmarkStore() {
     removeBookmark,
     addCategory,
     addTag,
+    updateCategory,
+    updateTag,
     savePhoto,
     wipe,
     reload,

@@ -5,9 +5,26 @@ export interface ClusterInput {
   diameter: number;
 }
 
+/** distance/radius ratio at which two equal circles overlap by `frac` of their area */
+function distanceRatioForOverlap(frac: number): number {
+  const target = frac * Math.PI;
+  const area = (k: number) => 2 * Math.acos(k / 2) - (k / 2) * Math.sqrt(Math.max(0, 4 - k * k));
+  let lo = 0;
+  let hi = 2;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (area(mid) > target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+const MAX_OVERLAP_RATIO = distanceRatioForOverlap(0.1);
+
 /**
  * Groups markers that overlap by more than 30% of the sum of their radii and
- * spreads each group in a circle around the group's median point.
+ * spreads each group in a compact circle around the group's median point so that
+ * adjacent markers overlap by at most 10% of their area.
  */
 export function spreadOverlapping(items: ClusterInput[]): Record<string, { x: number; y: number }> {
   const parent = new Map<string, string>();
@@ -53,7 +70,8 @@ export function spreadOverlapping(items: ClusterInput[]): Record<string, { x: nu
     const cy = group.reduce((s, g) => s + g.y, 0) / group.length;
     const maxD = Math.max(...group.map((g) => g.diameter));
     const n = group.length;
-    const radius = Math.max(maxD * 0.75, (maxD * 0.62) / Math.sin(Math.PI / n));
+    const neighborDist = (maxD / 2) * MAX_OVERLAP_RATIO;
+    const radius = n === 2 ? neighborDist / 2 : neighborDist / (2 * Math.sin(Math.PI / n));
     const sorted = [...group].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
     sorted.forEach((g, idx) => {
       const angle = (idx / n) * Math.PI * 2 - Math.PI / 2;

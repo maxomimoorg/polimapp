@@ -53,9 +53,10 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       }).setView([42.6, 12.5], 6);
       mapRef.current = map;
 
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap",
-        maxZoom: 19,
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: "&copy; OpenStreetMap &copy; CARTO",
+        subdomains: "abcd",
+        maxZoom: 20,
       }).addTo(map);
 
       const fitAll = () => {
