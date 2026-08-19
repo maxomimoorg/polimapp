@@ -19,11 +19,6 @@ interface Props {
   onReady: (api: MapApi) => void;
 }
 
-const EUROPE_BOUNDS: LType.LatLngBoundsLiteral = [
-  [33, -26],
-  [72, 46],
-];
-
 export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpen, onMove, onReady }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LType.Map | null>(null);
@@ -32,6 +27,8 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
   const sigRef = useRef<Map<string, string>>(new Map());
   const offsetRef = useRef<Map<string, { dx: number; dy: number }>>(new Map());
   const dataRef = useRef<Bookmark[]>(bookmarks);
+  const fitAllRef = useRef<(() => void) | null>(null);
+  const didFitRef = useRef(false);
   const cbRef = useRef({ onCreate, onOpen, onMove, colorOf, photoUrls });
   cbRef.current = { onCreate, onOpen, onMove, colorOf, photoUrls };
   dataRef.current = bookmarks;
@@ -47,10 +44,9 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       const map = L.map(containerRef.current, {
         zoomControl: true,
         doubleClickZoom: false,
-        maxBounds: EUROPE_BOUNDS,
-        maxBoundsViscosity: 0.7,
-        minZoom: 4,
-      }).setView([42.6, 12.5], 6);
+        worldCopyJump: true,
+        minZoom: 2,
+      }).setView([42.6, 12.5], 3);
       mapRef.current = map;
 
       L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
@@ -64,6 +60,7 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         if (pts.length === 0) return;
         map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: 15 });
       };
+      fitAllRef.current = fitAll;
 
       const FitControl = L.Control.extend({
         onAdd() {
@@ -120,6 +117,10 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         flyTo: (lat, lng) => map.flyTo([lat, lng], Math.max(map.getZoom(), 13), { duration: 0.8 }),
         fitAll,
       });
+      if (!didFitRef.current && dataRef.current.length > 0) {
+        didFitRef.current = true;
+        fitAll();
+      }
       layout();
     })();
     return () => {
@@ -196,6 +197,10 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       }
       sigRef.current.set(b.id, sig);
     }
+    if (!didFitRef.current && bookmarks.length > 0 && fitAllRef.current) {
+      didFitRef.current = true;
+      fitAllRef.current();
+    }
     layout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookmarks, photoUrls]);
@@ -227,6 +232,11 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       start = { x: ev.clientX, y: ev.clientY };
       endHold();
       timer = setTimeout(() => {
+        const current = dataRef.current.find((b) => b.id === id);
+        if (current?.locked) {
+          if (navigator.vibrate) navigator.vibrate([15, 40, 15]);
+          return;
+        }
         dragMode = true;
         marker.dragging?.enable();
         el.classList.add("bm-dragging");
