@@ -1,24 +1,31 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { Suspense, lazy } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const MapApp = lazy(() => import("@/components/MapApp"));
+
+const title = "Mappa Segnalibri — mappa offline dei tuoi luoghi";
+const description =
+  "App installabile per salvare segnalibri sulla mappa d'Europa: foto, categorie, tag, priorità e backup. Tutti i dati restano sul tuo dispositivo.";
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title },
+      { name: "description", content: description },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+    ],
+    links: [{ rel: "manifest", href: "/manifest.webmanifest" }],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <ClientOnly fallback={<div className="grid h-dvh w-screen place-items-center bg-black text-white/60">Caricamento…</div>}>
+      <Suspense fallback={<div className="grid h-dvh w-screen place-items-center bg-black text-white/60">Caricamento…</div>}>
+        <MapApp />
+      </Suspense>
+    </ClientOnly>
   );
 }
