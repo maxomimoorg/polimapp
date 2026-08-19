@@ -1,9 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { ChevronDown, Pencil, X } from "lucide-react";
+import { ChevronDown, Lock, LockOpen, Pencil, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { PhotoEditor } from "./PhotoEditor";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import type { Bookmark } from "@/lib/bookmarks/types";
 import { priorityStyle } from "@/lib/bookmarks/priority";
+import { geocodeAddress } from "@/lib/bookmarks/geocode";
 
 function EditRow({
   name,
@@ -24,14 +26,14 @@ function EditRow({
       {color !== undefined ? (
         <input
           type="color"
-          className="h-8 w-9 rounded border border-white/25 bg-transparent"
+          className="h-10 w-11 shrink-0 rounded border border-white/25 bg-transparent"
           value={c}
           onChange={(e) => setC(e.target.value)}
         />
       ) : null}
       <button
         type="button"
-        className="panel-btn"
+        className="panel-btn shrink-0"
         onClick={() => {
           if (!n.trim()) return;
           onSave(n.trim(), color !== undefined ? c : undefined);
@@ -39,8 +41,8 @@ function EditRow({
       >
         Salva
       </button>
-      <button type="button" className="panel-icon-btn" aria-label="Annulla" onClick={onCancel}>
-        <X className="h-3.5 w-3.5" />
+      <button type="button" className="panel-icon-btn shrink-0" aria-label="Annulla" onClick={onCancel}>
+        <X className="h-4 w-4" />
       </button>
     </div>
   );
@@ -50,10 +52,12 @@ export function BookmarkEditor({
   bookmark,
   store,
   onClose,
+  isNew = false,
 }: {
   bookmark: Bookmark;
   store: BookmarkStore;
   onClose: () => void;
+  isNew?: boolean;
 }) {
   const [draft, setDraft] = useState<Bookmark>(bookmark);
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -65,7 +69,10 @@ export function BookmarkEditor({
   const [tagOpen, setTagOpen] = useState(false);
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [editTagId, setEditTagId] = useState<string | null>(null);
+  const [confirmCatId, setConfirmCatId] = useState<string | null>(null);
+  const [confirmTagId, setConfirmTagId] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const { categories, tags } = store.data;
@@ -77,10 +84,34 @@ export function BookmarkEditor({
     .map((id) => tags.find((t) => t.id === id))
     .filter((t): t is NonNullable<typeof t> => Boolean(t));
 
+  async function handleSave() {
+    setSaving(true);
+    try {
+      let next = draft;
+      const addressChanged = draft.address.trim() !== bookmark.address.trim();
+      if (!draft.locked && addressChanged && draft.address.trim()) {
+        try {
+          const place = await geocodeAddress(draft.address.trim());
+          if (place) {
+            next = { ...next, lat: place.lat, lng: place.lng };
+          } else {
+            toast.error("Indirizzo non trovato: posizione invariata");
+          }
+        } catch {
+          toast.error("Ricerca indirizzo non disponibile: posizione invariata");
+        }
+      }
+      await store.saveBookmark(next);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <div className="panel w-[min(92vw,22rem)] max-h-[80vh] overflow-y-auto p-4">
+    <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-wide">Segnalibro</h2>
+        <h2 className="text-base font-semibold tracking-wide">{isNew ? "Nuovo segnalibro" : "Segnalibro"}</h2>
         <button type="button" aria-label="Chiudi" className="panel-icon-btn" onClick={onClose}>
           <X className="h-4 w-4" />
         </button>
@@ -100,7 +131,7 @@ export function BookmarkEditor({
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div
-              className="h-14 w-14 shrink-0 overflow-hidden rounded-full border-[3px] bg-white"
+              className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-[3px] bg-white"
               style={{ borderColor: ringColor, opacity: style.opacity }}
             >
               {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" /> : null}
@@ -143,6 +174,34 @@ export function BookmarkEditor({
           </label>
 
           <div className="panel-label">
+            Indirizzo
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                className="panel-input mt-0 flex-1"
+                value={draft.address}
+                readOnly={draft.locked}
+                placeholder="Via, città…"
+                onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
+              />
+              <button
+                type="button"
+                aria-label={draft.locked ? "Sblocca posizione" : "Blocca posizione"}
+                aria-pressed={draft.locked}
+                className="panel-icon-btn shrink-0"
+                style={{ opacity: draft.locked ? 1 : 0.5 }}
+                onClick={() => setDraft((d) => ({ ...d, locked: !d.locked }))}
+              >
+                {draft.locked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-white/50">
+              {draft.locked
+                ? "Posizione bloccata: il marker non può essere spostato."
+                : "Salvando, il marker si sposta all'indirizzo indicato."}
+            </p>
+          </div>
+
+          <div className="panel-label">
             Categoria
             <button
               type="button"
@@ -161,7 +220,7 @@ export function BookmarkEditor({
               <ChevronDown className="h-4 w-4 opacity-70" />
             </button>
             {catOpen ? (
-              <div className="panel-menu mt-1 max-h-56 overflow-y-auto">
+              <div className="panel-menu mt-1 max-h-60 overflow-y-auto">
                 <button
                   type="button"
                   className="panel-menu-item"
@@ -184,6 +243,24 @@ export function BookmarkEditor({
                         setEditCatId(null);
                       }}
                     />
+                  ) : confirmCatId === c.id ? (
+                    <div key={c.id} className="flex items-center gap-2 px-2 py-2 text-xs">
+                      <span className="flex-1 truncate">Eliminare «{c.name}»?</span>
+                      <button
+                        type="button"
+                        className="panel-btn-danger"
+                        onClick={async () => {
+                          await store.removeCategory(c.id);
+                          setDraft((d) => (d.categoryId === c.id ? { ...d, categoryId: null } : d));
+                          setConfirmCatId(null);
+                        }}
+                      >
+                        Elimina
+                      </button>
+                      <button type="button" className="panel-btn-ghost" onClick={() => setConfirmCatId(null)}>
+                        No
+                      </button>
+                    </div>
                   ) : (
                     <div key={c.id} className="flex items-center">
                       <button
@@ -200,10 +277,18 @@ export function BookmarkEditor({
                       <button
                         type="button"
                         aria-label={`Modifica ${c.name}`}
-                        className="px-2 py-2 text-white/70"
+                        className="px-3 py-3 text-white/70"
                         onClick={() => setEditCatId(c.id)}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Elimina ${c.name}`}
+                        className="px-3 py-3 text-white/70"
+                        onClick={() => setConfirmCatId(c.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   ),
@@ -232,13 +317,13 @@ export function BookmarkEditor({
               />
               <input
                 type="color"
-                className="h-9 w-10 rounded border border-white/25 bg-transparent"
+                className="h-11 w-12 shrink-0 rounded border border-white/25 bg-transparent"
                 value={newCatColor}
                 onChange={(e) => setNewCatColor(e.target.value)}
               />
               <button
                 type="button"
-                className="panel-btn"
+                className="panel-btn shrink-0"
                 onClick={async () => {
                   if (!newCatName.trim()) return;
                   const c = await store.addCategory(newCatName.trim(), newCatColor);
@@ -255,7 +340,7 @@ export function BookmarkEditor({
           <label className="panel-label">
             Note
             <textarea
-              className="panel-input min-h-16"
+              className="panel-input min-h-20"
               value={draft.notes}
               onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
             />
@@ -304,7 +389,7 @@ export function BookmarkEditor({
               <ChevronDown className="h-4 w-4 opacity-70" />
             </button>
             {tagOpen ? (
-              <div className="panel-menu mt-1 max-h-56 overflow-y-auto">
+              <div className="panel-menu mt-1 max-h-60 overflow-y-auto">
                 {tags.map((t) =>
                   editTagId === t.id ? (
                     <EditRow
@@ -316,6 +401,24 @@ export function BookmarkEditor({
                         setEditTagId(null);
                       }}
                     />
+                  ) : confirmTagId === t.id ? (
+                    <div key={t.id} className="flex items-center gap-2 px-2 py-2 text-xs">
+                      <span className="flex-1 truncate">Eliminare «{t.name}»?</span>
+                      <button
+                        type="button"
+                        className="panel-btn-danger"
+                        onClick={async () => {
+                          await store.removeTag(t.id);
+                          setDraft((d) => ({ ...d, tags: d.tags.filter((x) => x !== t.id) }));
+                          setConfirmTagId(null);
+                        }}
+                      >
+                        Elimina
+                      </button>
+                      <button type="button" className="panel-btn-ghost" onClick={() => setConfirmTagId(null)}>
+                        No
+                      </button>
+                    </div>
                   ) : (
                     <div key={t.id} className="flex items-center">
                       <button
@@ -334,10 +437,18 @@ export function BookmarkEditor({
                       <button
                         type="button"
                         aria-label={`Modifica ${t.name}`}
-                        className="px-2 py-2 text-white/70"
+                        className="px-3 py-3 text-white/70"
                         onClick={() => setEditTagId(t.id)}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Elimina ${t.name}`}
+                        className="px-3 py-3 text-white/70"
+                        onClick={() => setConfirmTagId(t.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   ),
@@ -364,7 +475,7 @@ export function BookmarkEditor({
                 />
                 <button
                   type="button"
-                  className="panel-btn"
+                  className="panel-btn shrink-0"
                   onClick={async () => {
                     if (!newTagName.trim()) return;
                     const t = await store.addTag(newTagName.trim());
@@ -380,25 +491,18 @@ export function BookmarkEditor({
           </div>
 
           <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              className="panel-btn flex-1"
-              onClick={async () => {
-                await store.saveBookmark(draft);
-                onClose();
-              }}
-            >
-              Salva
+            <button type="button" className="panel-btn flex-1" disabled={saving} onClick={() => void handleSave()}>
+              {saving ? "Salvataggio…" : "Salva"}
             </button>
             <button
               type="button"
               className="panel-btn-danger flex-1"
               onClick={async () => {
-                await store.removeBookmark(draft.id);
+                if (!isNew) await store.removeBookmark(draft.id);
                 onClose();
               }}
             >
-              Elimina
+              {isNew ? "Annulla" : "Elimina"}
             </button>
           </div>
         </div>

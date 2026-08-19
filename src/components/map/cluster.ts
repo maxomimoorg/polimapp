@@ -19,64 +19,62 @@ function distanceRatioForOverlap(frac: number): number {
   return (lo + hi) / 2;
 }
 
-const MAX_OVERLAP_RATIO = distanceRatioForOverlap(0.1);
+/** rapporto minimo distanza/raggio con sovrapposizione max dell'1% dell'area */
+const MAX_OVERLAP_RATIO = distanceRatioForOverlap(0.01);
+
+interface Placed {
+  x: number;
+  y: number;
+  r: number;
+}
+
+function minDistance(rA: number, rB: number) {
+  return MAX_OVERLAP_RATIO * ((rA + rB) / 2);
+}
+
+function collides(x: number, y: number, r: number, placed: Placed[]) {
+  for (const p of placed) {
+    if (Math.hypot(p.x - x, p.y - y) < minDistance(r, p.r)) return true;
+  }
+  return false;
+}
 
 /**
- * Groups markers that overlap by more than 30% of the sum of their radii and
- * spreads each group in a compact circle around the group's median point so that
- * adjacent markers overlap by at most 10% of their area.
+ * Posiziona i marker mantenendo al massimo l'1% di sovrapposizione d'area:
+ * ogni marker in conflitto viene spostato nel primo spazio libero disponibile
+ * più vicino alla sua posizione reale (ricerca a spirale).
  */
 export function spreadOverlapping(items: ClusterInput[]): Record<string, { x: number; y: number }> {
-  const parent = new Map<string, string>();
-  items.forEach((i) => parent.set(i.id, i.id));
-  const find = (a: string): string => {
-    let r = a;
-    while (parent.get(r) !== r) r = parent.get(r)!;
-    return r;
-  };
-  const union = (a: string, b: string) => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra !== rb) parent.set(ra, rb);
-  };
-
-  for (let i = 0; i < items.length; i++) {
-    for (let j = i + 1; j < items.length; j++) {
-      const a = items[i]!;
-      const b = items[j]!;
-      const sumR = a.diameter / 2 + b.diameter / 2;
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      const overlap = (sumR - d) / sumR;
-      if (overlap > 0.3) union(a.id, b.id);
-    }
-  }
-
-  const groups = new Map<string, ClusterInput[]>();
-  for (const it of items) {
-    const r = find(it.id);
-    const arr = groups.get(r) ?? [];
-    arr.push(it);
-    groups.set(r, arr);
-  }
-
   const out: Record<string, { x: number; y: number }> = {};
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      const g = group[0]!;
-      out[g.id] = { x: g.x, y: g.y };
-      continue;
+  const placed: Placed[] = [];
+  // i marker più grandi (priorità alta) restano nella posizione reale
+  const order = [...items].sort((a, b) => b.diameter - a.diameter);
+
+  for (const item of order) {
+    const r = item.diameter / 2;
+    let x = item.x;
+    let y = item.y;
+    if (collides(x, y, r, placed)) {
+      const step = Math.max(4, r * 0.5);
+      let found = false;
+      for (let ring = 1; ring <= 40 && !found; ring++) {
+        const radius = ring * step;
+        const count = Math.max(8, Math.round((2 * Math.PI * radius) / step));
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+          const cx = item.x + Math.cos(angle) * radius;
+          const cy = item.y + Math.sin(angle) * radius;
+          if (!collides(cx, cy, r, placed)) {
+            x = cx;
+            y = cy;
+            found = true;
+            break;
+          }
+        }
+      }
     }
-    const cx = group.reduce((s, g) => s + g.x, 0) / group.length;
-    const cy = group.reduce((s, g) => s + g.y, 0) / group.length;
-    const maxD = Math.max(...group.map((g) => g.diameter));
-    const n = group.length;
-    const neighborDist = (maxD / 2) * MAX_OVERLAP_RATIO;
-    const radius = n === 2 ? neighborDist / 2 : neighborDist / (2 * Math.sin(Math.PI / n));
-    const sorted = [...group].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
-    sorted.forEach((g, idx) => {
-      const angle = (idx / n) * Math.PI * 2 - Math.PI / 2;
-      out[g.id] = { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
-    });
+    placed.push({ x, y, r });
+    out[item.id] = { x, y };
   }
   return out;
 }

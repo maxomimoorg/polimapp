@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, SlidersHorizontal, Settings } from "lucide-react";
+import { Search, SlidersHorizontal, Settings, Undo2, Redo2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useBookmarkStore } from "@/lib/bookmarks/store";
 import { defaultFilter, matchesFilter, type FilterState } from "@/lib/bookmarks/filter";
 import { uid, type Bookmark } from "@/lib/bookmarks/types";
+import { reverseGeocode } from "@/lib/bookmarks/geocode";
 import { BookmarkEditor } from "@/components/bookmark/BookmarkEditor";
 import { SearchPanel } from "@/components/overlay/SearchPanel";
 import { FilterPanel } from "@/components/overlay/FilterPanel";
@@ -13,6 +14,49 @@ import type { MapApi } from "@/components/map/MapView";
 const MapView = lazy(() => import("@/components/map/MapView"));
 
 type PanelKind = "search" | "filter" | "options" | null;
+
+/** Contenitore: foglio a scomparsa dal basso su mobile, riquadro flottante su desktop. */
+function Overlay({
+  onClose,
+  align = "left",
+  width = "20rem",
+  children,
+}: {
+  onClose: () => void;
+  align?: "left" | "center";
+  width?: string;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[2000] flex items-end justify-center sm:items-center"
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className={
+          align === "center"
+            ? "relative w-full sm:w-auto"
+            : "relative w-full sm:absolute sm:bottom-4 sm:left-20 sm:w-auto"
+        }
+      >
+        <div className="sheet p-4 sm:w-[var(--sheet-w)]" style={{ ["--sheet-w" as string]: width }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MapApp() {
   const store = useBookmarkStore();
@@ -37,32 +81,37 @@ export default function MapApp() {
     [store.categoriesById],
   );
 
-  const handleCreate = useCallback(
-    async (lat: number, lng: number) => {
-      const b: Bookmark = {
-        id: uid(),
-        name: "",
-        lat,
-        lng,
-        categoryId: null,
-        notes: "",
-        priority: 50,
-        tags: [],
-        photoId: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      const saved = await store.saveBookmark(b);
-      setPanel(null);
-      setEditing(saved);
-    },
-    [store],
-  );
+  // il nuovo segnalibro esiste solo nel popup: senza "Salva" non viene creato
+  const handleCreate = useCallback((lat: number, lng: number) => {
+    setPanel(null);
+    setEditing({
+      id: uid(),
+      name: "",
+      lat,
+      lng,
+      categoryId: null,
+      notes: "",
+      priority: 50,
+      tags: [],
+      photoId: null,
+      address: "",
+      locked: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }, []);
 
   const handleMove = useCallback(
     async (id: string, lat: number, lng: number) => {
       const b = store.data.bookmarks.find((x) => x.id === id);
-      if (b) await store.saveBookmark({ ...b, lat, lng });
+      if (!b || b.locked) return;
+      let address = b.address;
+      try {
+        address = (await reverseGeocode(lat, lng)) ?? b.address;
+      } catch {
+        /* offline: mantiene l'indirizzo precedente */
+      }
+      await store.saveBookmark({ ...b, lat, lng, address });
     },
     [store],
   );
@@ -90,7 +139,7 @@ export default function MapApp() {
         />
       </Suspense>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-[1200] flex flex-col gap-2">
+      <div className="pointer-events-none absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-[1200] flex flex-col gap-3">
         {(
           [
             ["search", Search, "Cerca"],
@@ -110,8 +159,29 @@ export default function MapApp() {
         ))}
       </div>
 
+      <div className="pointer-events-none absolute left-4 top-[max(1rem,env(safe-area-inset-top))] z-[1200] flex gap-3">
+        <button
+          type="button"
+          aria-label="Annulla"
+          disabled={!store.canUndo}
+          className="float-btn-sm pointer-events-auto"
+          onClick={() => void store.undo()}
+        >
+          <Undo2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          aria-label="Ripeti"
+          disabled={!store.canRedo}
+          className="float-btn-sm pointer-events-auto"
+          onClick={() => void store.redo()}
+        >
+          <Redo2 className="h-4 w-4" />
+        </button>
+      </div>
+
       {panel ? (
-        <div className="absolute bottom-4 left-20 z-[1300]">
+        <Overlay onClose={() => setPanel(null)}>
           {panel === "search" ? (
             <SearchPanel
               store={store}
@@ -126,16 +196,21 @@ export default function MapApp() {
           ) : (
             <OptionsPanel store={store} onClose={() => setPanel(null)} />
           )}
-        </div>
+        </Overlay>
       ) : null}
 
       {editing ? (
-        <div className="absolute inset-0 z-[2000] grid place-items-center bg-black/30 p-4">
-          <BookmarkEditor bookmark={editing} store={store} onClose={() => setEditing(null)} />
-        </div>
+        <Overlay onClose={() => setEditing(null)} align="center" width="22rem">
+          <BookmarkEditor
+            bookmark={editing}
+            isNew={!store.data.bookmarks.some((b) => b.id === editing.id)}
+            store={store}
+            onClose={() => setEditing(null)}
+          />
+        </Overlay>
       ) : null}
 
-      <p className="pointer-events-none absolute bottom-3 right-3 z-[1200] max-w-[16rem] rounded-md bg-black/60 px-2 py-1 text-right text-[11px] leading-tight text-white/80">
+      <p className="pointer-events-none absolute bottom-3 right-3 z-[1200] hidden max-w-[16rem] rounded-md bg-black/60 px-2 py-1 text-right text-[11px] leading-tight text-white/80 sm:block">
         Doppio clic, clic destro o pressione prolungata sulla mappa: nuovo segnalibro. Tocca un marker per
         modificarlo, tienilo premuto 2 secondi per spostarlo.
       </p>
