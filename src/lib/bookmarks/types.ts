@@ -29,7 +29,11 @@ export interface AppData {
   tags: Tag[];
 }
 
-export function migrateBookmark(raw: Partial<Bookmark> & { id: string }): Bookmark {
+export function migrateBookmark(
+  raw: Partial<Bookmark> & { id: string; photoFile?: string | null },
+): Bookmark {
+  const fromFile = raw.photoFile ? raw.photoFile.replace(/\.[a-z0-9]+$/i, "") : null;
+  const createdAt = raw.createdAt ?? Date.now();
   return {
     id: raw.id,
     name: raw.name ?? "",
@@ -39,9 +43,9 @@ export function migrateBookmark(raw: Partial<Bookmark> & { id: string }): Bookma
     notes: raw.notes ?? "",
     priority: typeof raw.priority === "number" ? raw.priority : 50,
     tags: Array.isArray(raw.tags) ? raw.tags : [],
-    photoId: raw.photoId ?? null,
-    createdAt: raw.createdAt ?? Date.now(),
-    updatedAt: raw.updatedAt ?? Date.now(),
+    photoId: raw.photoId ?? fromFile,
+    createdAt,
+    updatedAt: raw.updatedAt ?? createdAt,
   };
 }
 
