@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, SlidersHorizontal, Settings } from "lucide-react";
 import { Toaster } from "sonner";
 import { useBookmarkStore } from "@/lib/bookmarks/store";
@@ -20,6 +20,12 @@ export default function MapApp() {
   const [panel, setPanel] = useState<PanelKind>(null);
   const [editing, setEditing] = useState<Bookmark | null>(null);
   const apiRef = useRef<MapApi | null>(null);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    }
+  }, []);
 
   const visible = useMemo(
     () => store.data.bookmarks.filter((b) => matchesFilter(b, filter)),
