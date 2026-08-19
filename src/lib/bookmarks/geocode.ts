@@ -13,7 +13,7 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   url.searchParams.set("accept-language", "it");
   url.searchParams.set("viewbox", "-25,72,45,33");
   url.searchParams.set("bounded", "1");
-  const res = await fetch(url.toString(), { signal });
+  const res = await fetch(url.toString(), { signal: signal ?? null });
   if (!res.ok) throw new Error("Ricerca non disponibile");
   const json = (await res.json()) as Array<{
     place_id: number;
