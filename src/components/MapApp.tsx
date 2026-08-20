@@ -56,6 +56,39 @@ function Overlay({
   );
 }
 
+/** Suggerimento in basso a destra: sbiadisce dopo 8 s, torna visibile al tocco o al passaggio del mouse. */
+function HintTip() {
+  const [faded, setFaded] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const arm = useCallback(() => {
+    setFaded(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setFaded(true), 8000);
+  }, []);
+
+  useEffect(() => {
+    arm();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [arm]);
+
+  return (
+    <p
+      className={`absolute bottom-3 right-3 z-[1200] hidden max-w-[16rem] rounded-md bg-black/60 px-2 py-1 text-right text-[11px] leading-tight text-white/80 transition-opacity duration-700 sm:block ${
+        faded ? "opacity-10" : "opacity-100"
+      }`}
+      onPointerEnter={() => setFaded(false)}
+      onPointerLeave={arm}
+      onPointerDown={arm}
+    >
+      Clic destro o pressione di 1 secondo su uno spazio libero: nuovo segnalibro. Tocca un marker per
+      modificarlo, tienilo premuto 1,2 secondi per spostarlo.
+    </p>
+  );
+}
+
 export default function MapApp() {
   const store = useBookmarkStore();
   const [filter, setFilter] = useState<FilterState>(defaultFilter);
