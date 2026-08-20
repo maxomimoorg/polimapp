@@ -149,7 +149,7 @@ export default function MapApp() {
 
   return (
     <main className="relative h-dvh w-screen overflow-hidden bg-black">
-      <h1 className="sr-only">Mappa Segnalibri</h1>
+      <h1 className="sr-only">MapP</h1>
       <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-white/60">Caricamento mappa…</div>}>
         <MapView
           bookmarks={visible}

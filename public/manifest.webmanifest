@@ -1,7 +1,7 @@
 {
-  "name": "Mappa Segnalibri",
-  "short_name": "Segnalibri",
-  "description": "Mappa personale di segnalibri, offline e privata.",
+  "name": "MapP",
+  "short_name": "MapP",
+  "description": "MapP: mappa personale di segnalibri, offline e privata.",
   "lang": "it",
   "start_url": "/",
   "scope": "/",
