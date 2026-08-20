@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import type { FilterState } from "@/lib/bookmarks/filter";
 
@@ -10,12 +9,10 @@ export function FilterPanel({
   store,
   filter,
   setFilter,
-  onClose,
 }: {
   store: BookmarkStore;
   filter: FilterState;
   setFilter: (f: FilterState) => void;
-  onClose: () => void;
 }) {
   const catKeys = [...store.data.categories.map((c) => c.id), "none"];
   const tagKeys = [...store.data.tags.map((t) => t.id), "none"];
