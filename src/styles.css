@@ -346,8 +346,21 @@ select.panel-input optgroup {
   box-shadow: 0 0 0 4px rgb(255 255 255 / 0.4), 0 8px 20px rgb(0 0 0 / 0.5);
 }
 
+html,
+body,
 .leaflet-container {
   background: #0b0b0b;
+}
+
+/* niente lampi bianchi tra i passaggi di zoom: le tile non partono da bianco */
+.leaflet-tile-pane,
+.leaflet-tile-container,
+.leaflet-tile {
+  background: #0b0b0b;
+}
+
+.leaflet-tile {
+  will-change: auto;
 }
 
 /* controlli mappa: simboli chiari su vetro scuro sfocato */
