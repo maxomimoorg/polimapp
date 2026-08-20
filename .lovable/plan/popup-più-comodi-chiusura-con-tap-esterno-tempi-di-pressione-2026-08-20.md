@@ -22,8 +22,9 @@ Obiettivo: tutto visibile senza scorrere.
 
 ## 5. Tempi di pressione
 
-- Nuovo segnalibro con pressione prolungata su spazio vuoto: 1 secondo (ora 0,65 s). Clic destro invariato. Il doppio clic per creare viene rimosso, così resta solo quanto richiesto.
+- Nuovo segnalibro con pressione prolungata su spazio vuoto: 0,75 secondi. Clic destro invariato. Il doppio clic per creare viene rimosso, così resta solo quanto richiesto.
 - Attivazione trascinamento marker: 1,2 secondi (ora 2 s). Il suggerimento in basso a destra viene aggiornato.
+- Il suggerimento in basso a destra, dopo essersi mostrato per 8 secondi, va a opacità 10%, riattivandosi al passaggio del mouse o per altri 8 secondi dopo un tap.
 
 ## Note tecniche
 
