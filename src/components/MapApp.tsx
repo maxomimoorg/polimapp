@@ -83,7 +83,7 @@ function HintTip() {
       onPointerLeave={arm}
       onPointerDown={arm}
     >
-      Clic destro o pressione di 1 secondo su uno spazio libero: nuovo segnalibro. Tocca un marker per
+      Clic destro o pressione prolungata su uno spazio libero: nuovo segnalibro. Tocca un marker per
       modificarlo, tienilo premuto 1,2 secondi per spostarlo.
     </p>
   );
