@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Lock, LockOpen, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PhotoEditor } from "./PhotoEditor";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import type { Bookmark } from "@/lib/bookmarks/types";
 import { priorityStyle } from "@/lib/bookmarks/priority";
-import { geocodeAddress } from "@/lib/bookmarks/geocode";
+import { geocodeAddress, searchPlaces, type PlaceResult } from "@/lib/bookmarks/geocode";
 
 function EditRow({
   name,
@@ -73,6 +73,10 @@ export function BookmarkEditor({
   const [confirmTagId, setConfirmTagId] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [photoMenu, setPhotoMenu] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
+  const [addrFocused, setAddrFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceResult[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const { categories, tags } = store.data;
@@ -83,6 +87,24 @@ export function BookmarkEditor({
   const selectedTags = draft.tags
     .map((id) => tags.find((t) => t.id === id))
     .filter((t): t is NonNullable<typeof t> => Boolean(t));
+
+  useEffect(() => {
+    const q = draft.address.trim();
+    if (draft.locked || !addrFocused || q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const id = setTimeout(() => {
+      searchPlaces(q, ctrl.signal)
+        .then(setSuggestions)
+        .catch(() => setSuggestions([]));
+    }, 250);
+    return () => {
+      clearTimeout(id);
+      ctrl.abort();
+    };
+  }, [draft.address, draft.locked, addrFocused]);
 
   async function handleSave() {
     setSaving(true);
@@ -110,13 +132,6 @@ export function BookmarkEditor({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold tracking-wide">{isNew ? "Nuovo segnalibro" : "Segnalibro"}</h2>
-        <button type="button" aria-label="Chiudi" className="panel-icon-btn" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
       {photoFile ? (
         <PhotoEditor
           file={photoFile}
@@ -129,25 +144,48 @@ export function BookmarkEditor({
         />
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div
-              className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-[3px] bg-white"
-              style={{ borderColor: ringColor, opacity: style.opacity }}
-            >
-              {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" /> : null}
-            </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <button type="button" className="panel-btn-ghost" onClick={() => fileRef.current?.click()}>
-                {draft.photoId ? "Cambia foto" : "Carica foto"}
+          <div className="flex items-start gap-3">
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                aria-label={photoUrl ? "Ingrandisci foto" : "Aggiungi foto"}
+                className="block h-16 w-16 overflow-hidden rounded-full border-[3px] bg-white"
+                style={{ borderColor: ringColor, opacity: style.opacity }}
+                onClick={() => (photoUrl ? setLightbox(true) : fileRef.current?.click())}
+              >
+                {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" /> : null}
               </button>
-              {draft.photoId ? (
-                <button
-                  type="button"
-                  className="panel-btn-ghost"
-                  onClick={() => setDraft((d) => ({ ...d, photoId: null }))}
-                >
-                  Rimuovi foto
-                </button>
+              <button
+                type="button"
+                aria-label="Modifica foto"
+                className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full border border-white/25 bg-black/80 text-white shadow"
+                onClick={() => (draft.photoId ? setPhotoMenu((v) => !v) : fileRef.current?.click())}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              {photoMenu ? (
+                <div className="panel-menu absolute left-0 top-full z-20 mt-2 w-40">
+                  <button
+                    type="button"
+                    className="panel-menu-item"
+                    onClick={() => {
+                      setPhotoMenu(false);
+                      fileRef.current?.click();
+                    }}
+                  >
+                    Cambia foto
+                  </button>
+                  <button
+                    type="button"
+                    className="panel-menu-item"
+                    onClick={() => {
+                      setDraft((d) => ({ ...d, photoId: null }));
+                      setPhotoMenu(false);
+                    }}
+                  >
+                    Rimuovi foto
+                  </button>
+                </div>
               ) : null}
               <input
                 ref={fileRef}
@@ -161,17 +199,30 @@ export function BookmarkEditor({
                 }}
               />
             </div>
+            <label className="panel-label flex-1">
+              Nome
+              <input
+                className="panel-input"
+                value={draft.name}
+                placeholder="Nome del luogo"
+                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              />
+            </label>
           </div>
 
-          <label className="panel-label">
-            Nome
-            <input
-              className="panel-input"
-              value={draft.name}
-              placeholder="Nome del luogo"
-              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            />
-          </label>
+          {lightbox && photoUrl ? (
+            <div
+              className="fixed inset-0 z-[1200] grid place-items-center bg-black/80 p-6"
+              role="dialog"
+              onClick={() => setLightbox(false)}
+            >
+              <img
+                src={photoUrl}
+                alt={draft.name || "Foto segnalibro"}
+                className="max-h-[70vh] max-w-[90vw] rounded-2xl object-contain"
+              />
+            </div>
+          ) : null}
 
           <div className="panel-label">
             Indirizzo
@@ -181,6 +232,8 @@ export function BookmarkEditor({
                 value={draft.address}
                 readOnly={draft.locked}
                 placeholder="Via, città…"
+                onFocus={() => setAddrFocused(true)}
+                onBlur={() => setTimeout(() => setAddrFocused(false), 150)}
                 onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
               />
               <button
@@ -194,6 +247,24 @@ export function BookmarkEditor({
                 {draft.locked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
               </button>
             </div>
+            {addrFocused && suggestions.length > 0 ? (
+              <div className="panel-menu mt-1 max-h-56 overflow-y-auto">
+                {suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="panel-menu-item text-xs"
+                    onClick={() => {
+                      setDraft((d) => ({ ...d, address: s.label, lat: s.lat, lng: s.lng }));
+                      setSuggestions([]);
+                      setAddrFocused(false);
+                    }}
+                  >
+                    <span className="truncate">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <p className="mt-1 text-[11px] text-white/50">
               {draft.locked
                 ? "Posizione bloccata: il marker non può essere spostato."
