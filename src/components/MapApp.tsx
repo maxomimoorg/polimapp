@@ -179,18 +179,17 @@ export default function MapApp() {
       </div>
 
       {panel ? (
-        <Overlay onClose={() => setPanel(null)}>
+        <Overlay onClose={() => setPanel(null)} width="26rem">
           {panel === "search" ? (
             <SearchPanel
               store={store}
-              onClose={() => setPanel(null)}
               onGoTo={(lat, lng) => {
                 apiRef.current?.flyTo(lat, lng);
                 setPanel(null);
               }}
             />
           ) : panel === "filter" ? (
-            <FilterPanel store={store} filter={filter} setFilter={setFilter} onClose={() => setPanel(null)} />
+            <FilterPanel store={store} filter={filter} setFilter={setFilter} />
           ) : (
             <OptionsPanel store={store} onClose={() => setPanel(null)} />
           )}
@@ -198,7 +197,7 @@ export default function MapApp() {
       ) : null}
 
       {editing ? (
-        <Overlay onClose={() => setEditing(null)} align="center" width="22rem">
+        <Overlay onClose={() => setEditing(null)} align="center" width="34rem">
           <BookmarkEditor
             bookmark={editing}
             isNew={!store.data.bookmarks.some((b) => b.id === editing.id)}
@@ -208,10 +207,7 @@ export default function MapApp() {
         </Overlay>
       ) : null}
 
-      <p className="pointer-events-none absolute bottom-3 right-3 z-[1200] hidden max-w-[16rem] rounded-md bg-black/60 px-2 py-1 text-right text-[11px] leading-tight text-white/80 sm:block">
-        Doppio clic, clic destro o pressione prolungata sulla mappa: nuovo segnalibro. Tocca un marker per
-        modificarlo, tienilo premuto 2 secondi per spostarlo.
-      </p>
+      <HintTip />
       <Toaster position="top-center" theme="dark" />
     </main>
   );
