@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import { exportBackup, importBackup } from "@/lib/bookmarks/backup";
