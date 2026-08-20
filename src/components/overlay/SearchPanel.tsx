@@ -19,7 +19,7 @@ export function SearchPanel({
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 3) {
+    if (q.length < 2) {
       setPlaces([]);
       return;
     }
@@ -36,7 +36,7 @@ export function SearchPanel({
         .then(setPlaces)
         .catch(() => setPlaces([]))
         .finally(() => setLoading(false));
-    }, 500);
+    }, 250);
     return () => {
       clearTimeout(id);
       ctrl.abort();
@@ -102,7 +102,7 @@ export function SearchPanel({
           ) : loading ? (
             <p className="text-xs text-white/50">Ricerca in corso…</p>
           ) : places.length === 0 ? (
-            <p className="text-xs text-white/50">Digita almeno 3 caratteri.</p>
+            <p className="text-xs text-white/50">Digita almeno 2 caratteri.</p>
           ) : (
             <ul className="space-y-1">
               {places.map((p) => (
