@@ -53,6 +53,10 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         attribution: "&copy; OpenStreetMap &copy; CARTO",
         subdomains: "abcd",
         maxZoom: 20,
+        // mantiene più tile attorno alla vista e non le scarta subito: nessun lampo tra gli zoom
+        keepBuffer: 4,
+        updateWhenZooming: false,
+        updateWhenIdle: false,
       }).addTo(map);
 
       const fitAll = () => {
