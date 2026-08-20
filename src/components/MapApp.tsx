@@ -37,18 +37,16 @@ function Overlay({
 
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-end justify-center sm:items-center"
-      onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/45 sm:items-center"
+      onPointerDown={onClose}
     >
-      <div className="absolute inset-0 bg-black/40" />
       <div
         className={
           align === "center"
             ? "relative w-full sm:w-auto"
             : "relative w-full sm:absolute sm:bottom-4 sm:left-20 sm:w-auto"
         }
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="sheet p-4 sm:w-[var(--sheet-w)]" style={{ ["--sheet-w" as string]: width }}>
           {children}
