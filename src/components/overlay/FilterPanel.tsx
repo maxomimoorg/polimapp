@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import type { FilterState } from "@/lib/bookmarks/filter";
 
@@ -10,12 +9,10 @@ export function FilterPanel({
   store,
   filter,
   setFilter,
-  onClose,
 }: {
   store: BookmarkStore;
   filter: FilterState;
   setFilter: (f: FilterState) => void;
-  onClose: () => void;
 }) {
   const catKeys = [...store.data.categories.map((c) => c.id), "none"];
   const tagKeys = [...store.data.tags.map((t) => t.id), "none"];
@@ -24,12 +21,7 @@ export function FilterPanel({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-wide">Filtro</h2>
-        <button type="button" aria-label="Chiudi" className="panel-icon-btn" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      <h2 className="mb-3 text-sm font-semibold tracking-wide">Filtro</h2>
 
       <p className="mb-1 text-[11px] uppercase tracking-wide text-white/50">Categorie</p>
       <label className="flex items-center gap-2 py-1 text-sm">

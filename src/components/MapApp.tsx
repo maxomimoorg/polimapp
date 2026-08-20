@@ -37,24 +37,55 @@ function Overlay({
 
   return (
     <div
-      className="fixed inset-0 z-[2000] flex items-end justify-center sm:items-center"
-      onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/45 sm:items-center"
+      onPointerDown={onClose}
     >
-      <div className="absolute inset-0 bg-black/40" />
       <div
         className={
           align === "center"
             ? "relative w-full sm:w-auto"
             : "relative w-full sm:absolute sm:bottom-4 sm:left-20 sm:w-auto"
         }
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="sheet p-4 sm:w-[var(--sheet-w)]" style={{ ["--sheet-w" as string]: width }}>
           {children}
         </div>
       </div>
     </div>
+  );
+}
+
+/** Suggerimento in basso a destra: sbiadisce dopo 8 s, torna visibile al tocco o al passaggio del mouse. */
+function HintTip() {
+  const [faded, setFaded] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const arm = useCallback(() => {
+    setFaded(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setFaded(true), 8000);
+  }, []);
+
+  useEffect(() => {
+    arm();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [arm]);
+
+  return (
+    <p
+      className={`absolute bottom-3 right-3 z-[1200] hidden max-w-[16rem] rounded-md bg-black/60 px-2 py-1 text-right text-[11px] leading-tight text-white/80 transition-opacity duration-700 sm:block ${
+        faded ? "opacity-10" : "opacity-100"
+      }`}
+      onPointerEnter={() => setFaded(false)}
+      onPointerLeave={arm}
+      onPointerDown={arm}
+    >
+      Clic destro o pressione prolungata su uno spazio libero: nuovo segnalibro. Tocca un marker per
+      modificarlo, tienilo premuto 1,2 secondi per spostarlo.
+    </p>
   );
 }
 
@@ -181,18 +212,17 @@ export default function MapApp() {
       </div>
 
       {panel ? (
-        <Overlay onClose={() => setPanel(null)}>
+        <Overlay onClose={() => setPanel(null)} width="26rem">
           {panel === "search" ? (
             <SearchPanel
               store={store}
-              onClose={() => setPanel(null)}
               onGoTo={(lat, lng) => {
                 apiRef.current?.flyTo(lat, lng);
                 setPanel(null);
               }}
             />
           ) : panel === "filter" ? (
-            <FilterPanel store={store} filter={filter} setFilter={setFilter} onClose={() => setPanel(null)} />
+            <FilterPanel store={store} filter={filter} setFilter={setFilter} />
           ) : (
             <OptionsPanel store={store} onClose={() => setPanel(null)} />
           )}
@@ -200,7 +230,7 @@ export default function MapApp() {
       ) : null}
 
       {editing ? (
-        <Overlay onClose={() => setEditing(null)} align="center" width="22rem">
+        <Overlay onClose={() => setEditing(null)} align="center" width="34rem">
           <BookmarkEditor
             bookmark={editing}
             isNew={!store.data.bookmarks.some((b) => b.id === editing.id)}
@@ -210,10 +240,7 @@ export default function MapApp() {
         </Overlay>
       ) : null}
 
-      <p className="pointer-events-none absolute bottom-3 right-3 z-[1200] hidden max-w-[16rem] rounded-md bg-black/60 px-2 py-1 text-right text-[11px] leading-tight text-white/80 sm:block">
-        Doppio clic, clic destro o pressione prolungata sulla mappa: nuovo segnalibro. Tocca un marker per
-        modificarlo, tienilo premuto 2 secondi per spostarlo.
-      </p>
+      <HintTip />
       <Toaster position="top-center" theme="dark" />
     </main>
   );
