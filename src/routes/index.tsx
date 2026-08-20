@@ -3,9 +3,9 @@ import { Suspense, lazy } from "react";
 
 const MapApp = lazy(() => import("@/components/MapApp"));
 
-const title = "Mappa Segnalibri — mappa offline dei tuoi luoghi";
+const title = "MapP — mappa offline dei tuoi luoghi";
 const description =
-  "App installabile per salvare segnalibri sulla mappa d'Europa: foto, categorie, tag, priorità e backup. Tutti i dati restano sul tuo dispositivo.";
+  "MapP: app installabile per salvare segnalibri sulla mappa: foto, categorie, tag, priorità e backup. Tutti i dati restano sul tuo dispositivo.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
