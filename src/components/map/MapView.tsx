@@ -46,6 +46,11 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         doubleClickZoom: false,
         worldCopyJump: true,
         minZoom: 2,
+        zoomSnap: 0,
+        zoomDelta: 0.5,
+        scrollWheelZoom: false,
+        touchZoom: true,
+        bounceAtZoomLimits: false,
       }).setView([42.6, 12.5], 3);
       mapRef.current = map;
 
