@@ -42,7 +42,7 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       if (disposed || !containerRef.current || mapRef.current) return;
       LRef.current = L;
       const map = L.map(containerRef.current, {
-        zoomControl: true,
+        zoomControl: false,
         doubleClickZoom: false,
         worldCopyJump: true,
         minZoom: 2,
