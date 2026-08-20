@@ -9,12 +9,7 @@ export function OptionsPanel({ store, onClose }: { store: BookmarkStore; onClose
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-wide">Opzioni</h2>
-        <button type="button" aria-label="Chiudi" className="panel-icon-btn" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      <h2 className="mb-3 text-sm font-semibold tracking-wide">Opzioni</h2>
       <div className="space-y-2">
         <button
           type="button"
