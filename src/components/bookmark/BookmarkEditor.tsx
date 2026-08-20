@@ -106,6 +106,18 @@ export function BookmarkEditor({
     };
   }, [draft.address, draft.locked, addrFocused]);
 
+  // Esc chiude prima la foto ingrandita, poi (al secondo Esc) il popup
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      setLightbox(false);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [lightbox]);
+
   async function handleSave() {
     setSaving(true);
     try {
