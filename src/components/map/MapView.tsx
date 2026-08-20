@@ -46,11 +46,6 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         doubleClickZoom: false,
         worldCopyJump: true,
         minZoom: 2,
-        zoomSnap: 0,
-        zoomDelta: 0.5,
-        scrollWheelZoom: false,
-        touchZoom: true,
-        bounceAtZoomLimits: false,
       }).setView([42.6, 12.5], 3);
       mapRef.current = map;
 
@@ -58,6 +53,10 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         attribution: "&copy; OpenStreetMap &copy; CARTO",
         subdomains: "abcd",
         maxZoom: 20,
+        // mantiene più tile attorno alla vista e non le scarta subito: nessun lampo tra gli zoom
+        keepBuffer: 4,
+        updateWhenZooming: false,
+        updateWhenIdle: false,
       }).addTo(map);
 
       const fitAll = () => {
@@ -113,30 +112,7 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       el.addEventListener("pointerup", clear);
       el.addEventListener("pointercancel", clear);
 
-      // zoom: pinch (touchpad/ctrl+wheel) fine e preciso, rotellina più rapida
-      el.addEventListener(
-        "wheel",
-        (ev: WheelEvent) => {
-          ev.preventDefault();
-          const unit = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1;
-          const dy = ev.deltaY * unit;
-          const pinch = ev.ctrlKey || ev.metaKey;
-          const intensity = pinch ? 0.004 : 0.02;
-          const step = Math.max(-1.5, Math.min(1.5, -dy * intensity));
-          if (step === 0) return;
-          const next = Math.max(
-            map.getMinZoom(),
-            Math.min(map.getMaxZoom(), map.getZoom() + step),
-          );
-          if (next === map.getZoom()) return;
-          const rect = el.getBoundingClientRect();
-          const pt = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
-          map.setZoomAround(map.containerPointToLatLng(pt), next, { animate: false });
-        },
-        { passive: false },
-      );
-
-      map.on("zoom zoomend moveend", () => layout());
+      map.on("zoomend moveend", () => layout());
 
 
       onReady({
