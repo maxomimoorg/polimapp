@@ -82,9 +82,6 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       map.on("contextmenu", (e: LType.LeafletMouseEvent) => {
         cbRef.current.onCreate(e.latlng.lat, e.latlng.lng);
       });
-      map.on("dblclick", (e: LType.LeafletMouseEvent) => {
-        cbRef.current.onCreate(e.latlng.lat, e.latlng.lng);
-      });
 
       // long press on empty map
       let pressTimer: ReturnType<typeof setTimeout> | null = null;
