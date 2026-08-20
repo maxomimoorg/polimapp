@@ -100,7 +100,7 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
           const pt = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
           const ll = map.containerPointToLatLng(pt);
           cbRef.current.onCreate(ll.lat, ll.lng);
-        }, 650);
+        }, 750);
       });
       el.addEventListener("pointermove", (ev: PointerEvent) => {
         if (pressTimer && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 10) clear();
@@ -238,7 +238,7 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
         marker.dragging?.enable();
         el.classList.add("bm-dragging");
         if (navigator.vibrate) navigator.vibrate(30);
-      }, 2000);
+      }, 1200);
     });
     el.addEventListener("pointermove", (ev: PointerEvent) => {
       if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 8) {
