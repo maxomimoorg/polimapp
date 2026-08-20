@@ -1,15 +1,12 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import { searchPlaces, type PlaceResult } from "@/lib/bookmarks/geocode";
 
 export function SearchPanel({
   store,
-  onClose,
   onGoTo,
 }: {
   store: BookmarkStore;
-  onClose: () => void;
   onGoTo: (lat: number, lng: number) => void;
 }) {
   const [query, setQuery] = useState("");
