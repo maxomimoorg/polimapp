@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Search, SlidersHorizontal, Settings, Undo2, Redo2 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useBookmarkStore } from "@/lib/bookmarks/store";
-import { defaultFilter, matchesFilter, type FilterState } from "@/lib/bookmarks/filter";
+import { defaultFilter, loadFilter, matchesFilter, saveFilter, type FilterState } from "@/lib/bookmarks/filter";
 import { uid, type Bookmark } from "@/lib/bookmarks/types";
 import { reverseGeocode } from "@/lib/bookmarks/geocode";
 import { BookmarkEditor } from "@/components/bookmark/BookmarkEditor";
@@ -95,6 +95,15 @@ export default function MapApp() {
   const [panel, setPanel] = useState<PanelKind>(null);
   const [editing, setEditing] = useState<Bookmark | null>(null);
   const apiRef = useRef<MapApi | null>(null);
+
+  // filtro persistente: caricato dopo l'idratazione, salvato a ogni modifica
+  useEffect(() => {
+    setFilter(loadFilter());
+  }, []);
+
+  useEffect(() => {
+    saveFilter(filter);
+  }, [filter]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
