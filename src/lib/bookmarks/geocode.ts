@@ -21,9 +21,15 @@ function photonLabel(p: Record<string, string | number | undefined>): string {
 
 /** Suggerimenti tolleranti su indirizzi parziali (Photon, con fallback Nominatim). */
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<PlaceResult[]> {
-  const q = query.trim();
-  if (q.length < 2) return [];
+  const raw = query.trim();
+  if (raw.length < 2) return [];
+
+  const special = await parseSpecialQuery(raw, signal);
+  if (special) return [special];
+
+  const q = normalizeAddress(raw);
   try {
+
     const url = new URL("https://photon.komoot.io/api");
     url.searchParams.set("q", q);
     url.searchParams.set("limit", "8");
