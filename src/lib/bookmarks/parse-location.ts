@@ -24,8 +24,8 @@ export function parseCoords(input: string): ParsedCoords | null {
   if (!m) return null;
 
   // con separatore virgola e decimali a virgola: "41,58, 12,66" → 2 gruppi già corretti
-  const lat = Number(m[1].replace(",", "."));
-  const lng = Number(m[2].replace(",", "."));
+  const lat = Number((m[1] ?? "").replace(",", "."));
+  const lng = Number((m[2] ?? "").replace(",", "."));
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return { lat, lng };
@@ -35,8 +35,9 @@ export function parseCoords(input: string): ParsedCoords | null {
 export function splitPlusCode(input: string): { code: string; locality: string } | null {
   const m = /([23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{0,7})/i.exec(input.trim());
   if (!m) return null;
-  const code = m[1].toUpperCase();
-  const locality = input.replace(m[1], "").replace(/^[\s,]+|[\s,]+$/g, "");
+  const raw = m[1] ?? "";
+  const code = raw.toUpperCase();
+  const locality = input.replace(raw, "").replace(/^[\s,]+|[\s,]+$/g, "");
   return { code, locality };
 }
 
@@ -75,7 +76,7 @@ export function parseGoogleMapsUrl(input: string): { coords: ParsedCoords | null
   const place = /\/maps\/place\/([^/@?]+)/.exec(s);
   return {
     coords: hit ? { lat: Number(hit[1]), lng: Number(hit[2]) } : null,
-    label: place ? decodeURIComponent(place[1]).replace(/\+/g, " ") : null,
+    label: place?.[1] ? decodeURIComponent(place[1]).replace(/\+/g, " ") : null,
   };
 }
 
