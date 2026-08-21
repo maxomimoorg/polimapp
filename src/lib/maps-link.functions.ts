@@ -18,7 +18,7 @@ function extractFromUrl(url: string): ResolvedMapsLink {
   return {
     lat: hit ? Number(hit[1]) : null,
     lng: hit ? Number(hit[2]) : null,
-    label: place ? decodeURIComponent(place[1]).replace(/\+/g, " ") : null,
+    label: place?.[1] ? decodeURIComponent(place[1]).replace(/\+/g, " ") : null,
   };
 }
 
@@ -60,6 +60,6 @@ export const resolveMapsLink = createServerFn({ method: "POST" })
     return {
       lat: null,
       lng: null,
-      label: fromUrl.label ?? fromHtml.label ?? (title ? title[1].replace(/ - Google Maps.*$/i, "").trim() : null),
+      label: fromUrl.label ?? fromHtml.label ?? (title?.[1] ? title[1].replace(/ - Google Maps.*$/i, "").trim() : null),
     };
   });
