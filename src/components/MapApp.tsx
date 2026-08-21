@@ -35,9 +35,18 @@ function Overlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // breve periodo "cieco" all'apertura: evita che il tocco che ha aperto il pannello
+  // colpisca subito un campo sottostante (click fantasma su touch)
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 350);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/45 sm:items-center"
+      style={{ pointerEvents: ready ? "auto" : "none" }}
       onPointerDown={onClose}
     >
       <div

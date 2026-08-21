@@ -253,6 +253,8 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
     });
     el.addEventListener("pointerup", (ev: PointerEvent) => {
       ev.stopPropagation();
+      // evita il "click fantasma" su touch: il click sintetico cadrebbe sul popup appena aperto
+      if (ev.pointerType !== "mouse") ev.preventDefault();
       endHold();
       if (!dragMode && !moved) cbRef.current.onOpen(id);
     });
