@@ -16,10 +16,19 @@ export function NotesDialog({
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (ref.current) {
-      ref.current.innerHTML = value || "";
-      ref.current.focus();
-    }
+    const el = ref.current;
+    if (!el) return;
+    el.innerHTML = value || "";
+    const t = setTimeout(() => {
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }, 30);
+    return () => clearTimeout(t);
   }, [value]);
 
   const exec = (cmd: string, arg?: string) => {
