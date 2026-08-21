@@ -228,6 +228,19 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       timer = null;
     };
 
+    const stopDrag = (commit: boolean) => {
+      if (!dragMode) return;
+      dragMode = false;
+      el.classList.remove("bm-dragging");
+      map.dragging.enable();
+      if (commit) {
+        const off = offsetRef.current.get(id) ?? { dx: 0, dy: 0 };
+        const p = map.latLngToLayerPoint(marker.getLatLng());
+        const real = map.layerPointToLatLng(L.point(p.x - off.dx, p.y - off.dy));
+        cbRef.current.onMove(id, real.lat, real.lng);
+      }
+    };
+
     el.addEventListener("pointerdown", (ev: PointerEvent) => {
       ev.stopPropagation();
       moved = false;
@@ -240,41 +253,56 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
           return;
         }
         dragMode = true;
-        marker.dragging?.enable();
         el.classList.add("bm-dragging");
+        // il trascinamento è gestito a mano: la mappa non deve muoversi
+        map.dragging.disable();
+        try {
+          el.setPointerCapture(ev.pointerId);
+        } catch {
+          /* alcuni browser rifiutano la cattura: il drag funziona comunque */
+        }
         if (navigator.vibrate) navigator.vibrate(30);
       }, 1200);
     });
+
     el.addEventListener("pointermove", (ev: PointerEvent) => {
+      if (dragMode) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const rect = map.getContainer().getBoundingClientRect();
+        const pt = L.point(ev.clientX - rect.left, ev.clientY - rect.top);
+        marker.setLatLng(map.containerPointToLatLng(pt));
+        return;
+      }
       if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 8) {
         moved = true;
-        if (!dragMode) endHold();
+        endHold();
       }
     });
+
     el.addEventListener("pointerup", (ev: PointerEvent) => {
       ev.stopPropagation();
       // evita il "click fantasma" su touch: il click sintetico cadrebbe sul popup appena aperto
       if (ev.pointerType !== "mouse") ev.preventDefault();
       endHold();
-      if (!dragMode && !moved) cbRef.current.onOpen(id);
+      if (dragMode) {
+        stopDrag(true);
+        return;
+      }
+      if (!moved) cbRef.current.onOpen(id);
     });
-    el.addEventListener("pointercancel", endHold);
+
+    el.addEventListener("pointercancel", () => {
+      endHold();
+      stopDrag(false);
+    });
     el.addEventListener("dblclick", (ev) => ev.stopPropagation());
     el.addEventListener("contextmenu", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
     });
-
-    marker.on("dragend", () => {
-      const off = offsetRef.current.get(id) ?? { dx: 0, dy: 0 };
-      const p = map.latLngToLayerPoint(marker.getLatLng());
-      const real = map.layerPointToLatLng(L.point(p.x - off.dx, p.y - off.dy));
-      dragMode = false;
-      marker.dragging?.disable();
-      el.classList.remove("bm-dragging");
-      cbRef.current.onMove(id, real.lat, real.lng);
-    });
   }
+
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }

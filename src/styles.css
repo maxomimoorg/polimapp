@@ -341,6 +341,11 @@ select.panel-input optgroup {
   display: block;
 }
 
+.leaflet-marker-icon.bm-dragging {
+  touch-action: none;
+  z-index: 1000 !important;
+}
+
 .leaflet-marker-icon.bm-dragging .bm-marker {
   transform: scale(1.18);
   box-shadow: 0 0 0 4px rgb(255 255 255 / 0.4), 0 8px 20px rgb(0 0 0 / 0.5);
