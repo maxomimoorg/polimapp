@@ -128,10 +128,11 @@ export function TagDialog({
               key={t.id}
               type="button"
               className={on ? "chip chip-active" : "chip"}
-              style={{ opacity: on ? 1 : 0.75 }}
-              onPointerDown={() => startPress(t.id, t.name)}
+              style={{ opacity: on ? 1 : 0.75, touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
+              onContextMenu={(e) => e.preventDefault()}
+              onPointerDown={(e) => startPress(t.id, t.name, e)}
+              onPointerMove={movePress}
               onPointerUp={endPress}
-              onPointerLeave={endPress}
               onPointerCancel={endPress}
               onClick={() => {
                 if (longRef.current) return;
