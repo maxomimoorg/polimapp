@@ -31,18 +31,36 @@ export function TagDialog({
     return sa - sb || a.name.localeCompare(b.name);
   });
 
-  const startPress = (id: string, name: string) => {
+  const startRef = useRef({ x: 0, y: 0 });
+
+  const startPress = (id: string, name: string, e: React.PointerEvent) => {
     longRef.current = false;
+    startRef.current = { x: e.clientX, y: e.clientY };
+    // su Android il tocco lungo attiva selezione testo/menu di sistema: lo blocchiamo
+    if (e.pointerType !== "mouse") {
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        /* cattura non disponibile: la pressione lunga funziona comunque */
+      }
+    }
     if (pressRef.current) clearTimeout(pressRef.current);
     pressRef.current = setTimeout(() => {
       longRef.current = true;
+      if (navigator.vibrate) navigator.vibrate(25);
       setRenameId(id);
       setRenameValue(name);
-    }, 1000);
+    }, 700);
+  };
+  const movePress = (e: React.PointerEvent) => {
+    if (!pressRef.current) return;
+    if (Math.hypot(e.clientX - startRef.current.x, e.clientY - startRef.current.y) > 12) endPress();
   };
   const endPress = () => {
     if (pressRef.current) clearTimeout(pressRef.current);
+    pressRef.current = null;
   };
+
 
   const target = tags.find((t) => t.id === confirmId);
   const renaming = tags.find((t) => t.id === renameId);
