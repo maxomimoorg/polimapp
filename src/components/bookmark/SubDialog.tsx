@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 /** Popup annidato: si chiude con tap esterno o Esc, stile coerente con i pannelli. */
 export function SubDialog({
@@ -22,7 +23,12 @@ export function SubDialog({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  // portale sul body: il pannello genitore usa backdrop-filter e ritaglierebbe il popup
+  return createPortal(
     <div
       className="fixed inset-0 z-[2600] flex items-end justify-center bg-black/55 sm:items-center"
       onPointerDown={(e) => {
@@ -36,7 +42,8 @@ export function SubDialog({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
