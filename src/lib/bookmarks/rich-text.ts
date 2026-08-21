@@ -47,8 +47,8 @@ export function notesToText(html: string): string {
   return decoded.replace(/\s+/g, " ").trim();
 }
 
-/** Anteprima: primi 30 caratteri seguiti da "…" se il testo continua. */
-export function notesPreview(html: string, max = 30): string {
+/** Anteprima: primi 50 caratteri seguiti da "…" se il testo continua. */
+export function notesPreview(html: string, max = 50): string {
   const text = notesToText(html);
   return text.length > max ? `${text.slice(0, max)}...` : text;
 }
