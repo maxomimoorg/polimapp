@@ -1,9 +1,97 @@
+import {
+  decodePlusCode,
+  isShortMapsLink,
+  normalizeAddress,
+  parseCoords,
+  parseGoogleMapsUrl,
+  splitPlusCode,
+  type ParsedCoords,
+} from "./parse-location";
+
 export interface PlaceResult {
   id: string;
   label: string;
   lat: number;
   lng: number;
 }
+
+function coordLabel(c: ParsedCoords, prefix?: string | null): string {
+  const coords = `${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`;
+  return prefix ? `${prefix} (${coords})` : coords;
+}
+
+/**
+ * Riconosce i formati di Google Maps: coordinate, Plus Code, URL lungo e link breve.
+ * Restituisce null se la stringa è un normale indirizzo testuale.
+ */
+async function parseSpecialQuery(raw: string, signal?: AbortSignal): Promise<PlaceResult | null> {
+  const coords = parseCoords(raw);
+  if (coords) {
+    return { id: `coords-${coords.lat}-${coords.lng}`, label: coordLabel(coords), ...coords };
+  }
+
+  if (isShortMapsLink(raw)) {
+    try {
+      const { resolveMapsLink } = await import("@/lib/maps-link.functions");
+      const res = await resolveMapsLink({ data: { url: raw } });
+      if (res.lat != null && res.lng != null) {
+        return {
+          id: `glink-${res.lat}-${res.lng}`,
+          label: res.label ? `${res.label}` : coordLabel({ lat: res.lat, lng: res.lng }),
+          lat: res.lat,
+          lng: res.lng,
+        };
+      }
+      if (res.label) {
+        const byName = await searchPlaces(res.label, signal);
+        if (byName[0]) return byName[0];
+      }
+    } catch {
+      /* link non risolvibile: si prosegue come testo */
+    }
+    return null;
+  }
+
+  const gmaps = parseGoogleMapsUrl(raw);
+  if (gmaps) {
+    if (gmaps.coords) {
+      return {
+        id: `gurl-${gmaps.coords.lat}-${gmaps.coords.lng}`,
+        label: gmaps.label ?? coordLabel(gmaps.coords),
+        ...gmaps.coords,
+      };
+    }
+    if (gmaps.label) {
+      const byName = await searchPlaces(gmaps.label, signal);
+      if (byName[0]) return byName[0];
+    }
+    return null;
+  }
+
+  const plus = splitPlusCode(raw);
+  if (plus) {
+    let ref: ParsedCoords | undefined;
+    const direct = decodePlusCode(plus.code);
+    if (direct) {
+      return { id: `plus-${plus.code}`, label: coordLabel(direct, plus.code), ...direct };
+    }
+    if (plus.locality) {
+      const near = await searchPlacesNominatim(normalizeAddress(plus.locality), signal).catch(() => []);
+      if (near[0]) ref = { lat: near[0].lat, lng: near[0].lng };
+    }
+    const decoded = ref ? decodePlusCode(plus.code, ref) : null;
+    if (decoded) {
+      return {
+        id: `plus-${plus.code}`,
+        label: coordLabel(decoded, `${plus.code} ${plus.locality}`.trim()),
+        ...decoded,
+      };
+    }
+  }
+
+  return null;
+}
+
 
 interface PhotonFeature {
   properties: Record<string, string | number | undefined>;
@@ -21,9 +109,15 @@ function photonLabel(p: Record<string, string | number | undefined>): string {
 
 /** Suggerimenti tolleranti su indirizzi parziali (Photon, con fallback Nominatim). */
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<PlaceResult[]> {
-  const q = query.trim();
-  if (q.length < 2) return [];
+  const raw = query.trim();
+  if (raw.length < 2) return [];
+
+  const special = await parseSpecialQuery(raw, signal);
+  if (special) return [special];
+
+  const q = normalizeAddress(raw);
   try {
+
     const url = new URL("https://photon.komoot.io/api");
     url.searchParams.set("q", q);
     url.searchParams.set("limit", "8");
