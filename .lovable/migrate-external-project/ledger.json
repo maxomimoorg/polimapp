@@ -3,8 +3,8 @@
     "capability": "code",
     "source": "PoliMapP_v0.7.zip",
     "outcome": "preserve",
-    "status": "pending",
-    "next_action": "Import version 0.7 source and verify preview"
+    "status": "verified",
+    "next_action": "Imported and verified: supplied tests pass, online map renders, offline fallback renders, bookmark CRUD survives reload; not published."
   },
   {
     "capability": "local schema",
@@ -38,15 +38,15 @@
     "capability": "uploaded file bytes",
     "source": "PoliMapP_v0.7.zip",
     "outcome": "preserve",
-    "status": "pending",
-    "next_action": "Import bundled icons and Natural Earth GeoJSON"
+    "status": "verified",
+    "next_action": "Imported and verified: supplied tests pass, online map renders, offline fallback renders, bookmark CRUD survives reload; not published."
   },
   {
     "capability": "external providers",
     "source": "PoliMapP_v0.7.zip",
     "outcome": "preserve",
-    "status": "pending",
-    "next_action": "Retain OpenFreeMap, Photon and Nominatim"
+    "status": "preserved",
+    "next_action": "Imported and verified: supplied tests pass, online map renders, offline fallback renders, bookmark CRUD survives reload; not published."
   },
   {
     "capability": "public endpoints and callbacks",
@@ -73,14 +73,14 @@
     "capability": "cutover",
     "source": "PoliMapP_v0.7.zip",
     "outcome": "preserve",
-    "status": "pending",
-    "next_action": "Replace current app without changing editor identity or publishing"
+    "status": "preserved",
+    "next_action": "Imported and verified: supplied tests pass, online map renders, offline fallback renders, bookmark CRUD survives reload; not published."
   },
   {
     "capability": "verification",
     "source": "PoliMapP_v0.7.zip",
     "outcome": "preserve",
-    "status": "pending",
-    "next_action": "Run supplied tests and bookmark CRUD through preview"
+    "status": "verified",
+    "next_action": "Imported and verified: supplied tests pass, online map renders, offline fallback renders, bookmark CRUD survives reload; not published."
   }
 ]
