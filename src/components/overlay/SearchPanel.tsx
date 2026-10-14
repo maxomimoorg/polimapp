@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
-import { searchPlaces, type PlaceResult } from "@/lib/bookmarks/geocode";
+import { searchPlaces, UnsupportedLinkError, type PlaceResult } from "@/lib/bookmarks/geocode";
 
 export function SearchPanel({
   store,
@@ -13,6 +13,7 @@ export function SearchPanel({
   const [places, setPlaces] = useState<PlaceResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query.trim();
@@ -20,18 +21,19 @@ export function SearchPanel({
       setPlaces([]);
       return;
     }
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      setOffline(true);
-      setPlaces([]);
-      return;
-    }
     setOffline(false);
+    setNotice(null);
     const ctrl = new AbortController();
     const id = setTimeout(() => {
       setLoading(true);
+      // coordinate, Plus Code e URL completi sono riconosciuti localmente; le città richiedono la rete
       searchPlaces(q, ctrl.signal)
         .then(setPlaces)
-        .catch(() => setPlaces([]))
+        .catch((err: unknown) => {
+          setPlaces([]);
+          if (err instanceof UnsupportedLinkError) setNotice(err.message);
+          else if (typeof navigator !== "undefined" && !navigator.onLine) setOffline(true);
+        })
         .finally(() => setLoading(false));
     }, 250);
     return () => {
@@ -50,7 +52,7 @@ export function SearchPanel({
       <input
         autoFocus
         className="panel-input"
-        placeholder="Nome o indirizzo…"
+        placeholder="Segnalibro, città o coordinate…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -88,9 +90,13 @@ export function SearchPanel({
         </div>
 
         <div>
-          <p className="mb-1 text-[11px] uppercase tracking-wide text-white/50">Indirizzi</p>
-          {offline ? (
-            <p className="text-xs text-white/50">Ricerca indirizzi non disponibile offline.</p>
+          <p className="mb-1 text-[11px] uppercase tracking-wide text-white/50">Città e luoghi</p>
+          {notice ? (
+            <p className="text-xs text-amber-200/90">{notice}</p>
+          ) : offline ? (
+            <p className="text-xs text-white/50">
+              La ricerca di città richiede la connessione. Offline funzionano coordinate e Plus Code.
+            </p>
           ) : loading ? (
             <p className="text-xs text-white/50">Ricerca in corso…</p>
           ) : places.length === 0 ? (

@@ -14,8 +14,10 @@ export const Route = createFileRoute("/")({
       { name: "description", content: description },
       { property: "og:title", content: title },
       { property: "og:description", content: description },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
-    links: [{ rel: "manifest", href: "/manifest.webmanifest" }],
+    links: [{ rel: "manifest", href: `${import.meta.env.BASE_URL}manifest.webmanifest` }],
   }),
   component: Index,
 });

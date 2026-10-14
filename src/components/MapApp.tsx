@@ -116,7 +116,16 @@ export default function MapApp() {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+      const isPreview = !import.meta.env.PROD || window.self !== window.top;
+      const base = import.meta.env.BASE_URL;
+      if (isPreview) {
+        // nell'anteprima nessun service worker: evita versioni vecchie in cache
+        void navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const r of regs) if (r.active?.scriptURL.endsWith("/sw.js")) void r.unregister();
+        });
+      } else {
+        navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => undefined);
+      }
     }
   }, []);
 
