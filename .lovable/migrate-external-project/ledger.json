@@ -1,0 +1,86 @@
+[
+  {
+    "capability": "code",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Import version 0.7 source and verify preview"
+  },
+  {
+    "capability": "local schema",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "compatible",
+    "next_action": "IndexedDB code is identical; preserve on-device data"
+  },
+  {
+    "capability": "records",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "not-applicable",
+    "next_action": "No exported records; existing on-device data remains in the same IndexedDB"
+  },
+  {
+    "capability": "auth identities",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "not-applicable",
+    "next_action": "No sign-in in source"
+  },
+  {
+    "capability": "authorization",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "not-applicable",
+    "next_action": "Device-local personal application"
+  },
+  {
+    "capability": "uploaded file bytes",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Import bundled icons and Natural Earth GeoJSON"
+  },
+  {
+    "capability": "external providers",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Retain OpenFreeMap, Photon and Nominatim"
+  },
+  {
+    "capability": "public endpoints and callbacks",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "not-applicable",
+    "next_action": "Source intentionally removes Google short-link server expansion"
+  },
+  {
+    "capability": "webhooks and schedules",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "not-applicable",
+    "next_action": "None detected"
+  },
+  {
+    "capability": "secrets",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "not-applicable",
+    "next_action": "No private API keys required"
+  },
+  {
+    "capability": "cutover",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Replace current app without changing editor identity or publishing"
+  },
+  {
+    "capability": "verification",
+    "source": "PoliMapP_v0.7.zip",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Run supplied tests and bookmark CRUD through preview"
+  }
+]

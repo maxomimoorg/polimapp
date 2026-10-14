@@ -10,7 +10,7 @@ import type { BookmarkStore } from "@/lib/bookmarks/store";
 import type { Bookmark } from "@/lib/bookmarks/types";
 import { priorityStyle } from "@/lib/bookmarks/priority";
 import { notesPreview } from "@/lib/bookmarks/rich-text";
-import { geocodeAddress, searchPlaces, type PlaceResult } from "@/lib/bookmarks/geocode";
+import { geocodeAddress, searchPlaces, UnsupportedLinkError, type PlaceResult } from "@/lib/bookmarks/geocode";
 
 export function BookmarkEditor({
   bookmark,
@@ -85,8 +85,12 @@ export function BookmarkEditor({
           const place = await geocodeAddress(draft.address.trim());
           if (place) next = { ...next, lat: place.lat, lng: place.lng };
           else toast.error("Indirizzo non trovato: posizione invariata");
-        } catch {
-          toast.error("Ricerca indirizzo non disponibile: posizione invariata");
+        } catch (err) {
+          toast.error(
+            err instanceof UnsupportedLinkError
+              ? err.message
+              : "Ricerca indirizzo non disponibile: posizione invariata",
+          );
         }
       }
       await store.saveBookmark(next);

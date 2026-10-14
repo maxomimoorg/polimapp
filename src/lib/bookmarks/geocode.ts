@@ -15,6 +15,16 @@ export interface PlaceResult {
   lng: number;
 }
 
+export const SHORT_LINK_MESSAGE =
+  "I link brevi di Google Maps (maps.app.goo.gl) non sono supportati. Apri il link, copia le coordinate o l’URL completo dalla barra degli indirizzi e incollalo qui.";
+
+export class UnsupportedLinkError extends Error {
+  constructor() {
+    super(SHORT_LINK_MESSAGE);
+    this.name = "UnsupportedLinkError";
+  }
+}
+
 function coordLabel(c: ParsedCoords, prefix?: string | null): string {
   const coords = `${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`;
   return prefix ? `${prefix} (${coords})` : coords;
@@ -31,25 +41,8 @@ async function parseSpecialQuery(raw: string, signal?: AbortSignal): Promise<Pla
   }
 
   if (isShortMapsLink(raw)) {
-    try {
-      const { resolveMapsLink } = await import("@/lib/maps-link.functions");
-      const res = await resolveMapsLink({ data: { url: raw } });
-      if (res.lat != null && res.lng != null) {
-        return {
-          id: `glink-${res.lat}-${res.lng}`,
-          label: res.label ? `${res.label}` : coordLabel({ lat: res.lat, lng: res.lng }),
-          lat: res.lat,
-          lng: res.lng,
-        };
-      }
-      if (res.label) {
-        const byName = await searchPlaces(res.label, signal);
-        if (byName[0]) return byName[0];
-      }
-    } catch {
-      /* link non risolvibile: si prosegue come testo */
-    }
-    return null;
+    // i link brevi richiederebbero un redirect lato server: non sono supportati
+    throw new UnsupportedLinkError();
   }
 
   const gmaps = parseGoogleMapsUrl(raw);

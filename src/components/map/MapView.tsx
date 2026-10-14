@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type * as LType from "leaflet";
 import type { Bookmark } from "@/lib/bookmarks/types";
 import { markerDiameter, priorityStyle } from "@/lib/bookmarks/priority";
 import { spreadOverlapping } from "./cluster";
+import { addOfflineBase, createOnlineController, type MapMode } from "./basemap";
 
 export interface MapApi {
   flyTo: (lat: number, lng: number) => void;
@@ -31,6 +32,8 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
   const didFitRef = useRef(false);
   const cbRef = useRef({ onCreate, onOpen, onMove, colorOf, photoUrls });
   cbRef.current = { onCreate, onOpen, onMove, colorOf, photoUrls };
+  const [mode, setMode] = useState<MapMode>("loading");
+  const stopOnlineRef = useRef<(() => void) | null>(null);
   dataRef.current = bookmarks;
 
   // init map once
@@ -49,15 +52,9 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
       }).setView([42.6, 12.5], 3);
       mapRef.current = map;
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OpenStreetMap &copy; CARTO",
-        subdomains: "abcd",
-        maxZoom: 20,
-        // mantiene più tile attorno alla vista e non le scarta subito: nessun lampo tra gli zoom
-        keepBuffer: 4,
-        updateWhenZooming: false,
-        updateWhenIdle: false,
-      }).addTo(map);
+      // base locale sempre presente (offline), dettaglio OpenFreeMap sopra quando raggiungibile
+      void addOfflineBase(L, map).catch(() => undefined);
+      stopOnlineRef.current = createOnlineController(L, map, setMode);
 
       const fitAll = () => {
         const pts = dataRef.current.map((b) => [b.lat, b.lng] as [number, number]);
@@ -127,6 +124,8 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
     })();
     return () => {
       disposed = true;
+      stopOnlineRef.current?.();
+      stopOnlineRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
       markersRef.current.clear();
@@ -304,5 +303,16 @@ export default function MapView({ bookmarks, photoUrls, colorOf, onCreate, onOpe
   }
 
 
-  return <div ref={containerRef} className="absolute inset-0" />;
+  return (
+    <>
+      <div ref={containerRef} className="absolute inset-0" />
+      <div className={`map-mode-badge map-mode-${mode}`} role="status" aria-live="polite">
+        {mode === "loading"
+          ? "Caricamento mappa dettagliata…"
+          : mode === "online"
+            ? "Mappa dettagliata online"
+            : "Mappa base offline · lo zoom non aggiunge strade"}
+      </div>
+    </>
+  );
 }
