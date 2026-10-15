@@ -36,9 +36,9 @@ jobs:
 
       - name: Check build output
         run: |
-          if [ ! -f dist/client/index.html ]; then
-            echo "Non trovo dist/client/index.html. Controlla i file prodotti dal build:"
-            find dist .output -maxdepth 4 -type f -name 'index.html' -print 2>/dev/null || true
+          if [ ! -f .output/public/index.html ]; then
+            echo "Non trovo .output/public/index.html. File generati:"
+            find .output/public -maxdepth 4 -type f -print 2>/dev/null || true
             exit 1
           fi
 
@@ -48,7 +48,7 @@ jobs:
       - name: Upload app build
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist/client
+          path: .output/public
 
       - name: Deploy to GitHub Pages
         id: deployment
