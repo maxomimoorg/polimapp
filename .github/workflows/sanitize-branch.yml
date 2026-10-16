@@ -6,10 +6,10 @@ on:
       target_branch:
         description: 'Nome del branch pulito da creare o aggiornare'
         required: true
-        default: 'clean-production'
+        default: 'main'
   push:
     branches:
-      - main # Si avvia in automatico a ogni push da Lovable su main (puoi toglierlo se vuoi solo manuale)
+      - lovable # Si avvia in automatico a ogni push da Lovable su main (puoi toglierlo se vuoi solo manuale)
 
 jobs:
   sanitize:
@@ -121,7 +121,7 @@ jobs:
 
       - name: Configura Git ed effettua il Push sul nuovo branch
         run: |
-          TARGET_BRANCH="${{ github.event.inputs.target_branch || 'clean-production' }}"
+          TARGET_BRANCH="${{ github.event.inputs.target_branch || 'main' }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
