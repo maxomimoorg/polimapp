@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from "idb";
-import { migrateBookmark, type AppData, type Bookmark, type Category, type Tag } from "./types";
+import { migrateBookmark, migrateCategory, migrateMacro, type AppData, type Bookmark, type Category, type Macro, type Tag } from "./types";
 
 const DB_NAME = "mappa-segnalibri";
-const VERSION = 1;
+const VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -14,6 +14,7 @@ function db() {
         if (!d.objectStoreNames.contains("categories")) d.createObjectStore("categories", { keyPath: "id" });
         if (!d.objectStoreNames.contains("tags")) d.createObjectStore("tags", { keyPath: "id" });
         if (!d.objectStoreNames.contains("photos")) d.createObjectStore("photos");
+        if (!d.objectStoreNames.contains("macros")) d.createObjectStore("macros", { keyPath: "id" });
       },
     });
   }
@@ -22,15 +23,17 @@ function db() {
 
 export async function loadAll(): Promise<AppData> {
   const d = await db();
-  const [bookmarks, categories, tags] = await Promise.all([
+  const [bookmarks, categories, tags, macros] = await Promise.all([
     d.getAll("bookmarks"),
     d.getAll("categories"),
     d.getAll("tags"),
+    d.getAll("macros"),
   ]);
   return {
-    bookmarks: (bookmarks as Bookmark[]).map(migrateBookmark),
-    categories: categories as Category[],
+    bookmarks: (bookmarks as Array<Partial<Bookmark> & { id: string }>).map(migrateBookmark),
+    categories: (categories as Array<Partial<Category> & { id: string }>).map(migrateCategory),
     tags: tags as Tag[],
+    macros: (macros as Array<Partial<Macro> & { id: string }>).map(migrateMacro),
   };
 }
 
@@ -49,6 +52,10 @@ export async function putCategory(c: Category) {
 
 export async function putTag(t: Tag) {
   (await db()).put("tags", t);
+}
+
+export async function putMacro(m: Macro) {
+  (await db()).put("macros", m);
 }
 
 export async function putPhoto(id: string, blob: Blob) {
@@ -80,6 +87,7 @@ export async function clearAll() {
     d.clear("bookmarks"),
     d.clear("categories"),
     d.clear("tags"),
+    d.clear("macros"),
     d.clear("photos"),
   ]);
 }
@@ -90,14 +98,16 @@ export async function replaceAll(data: AppData, photos: Array<{ id: string; blob
   for (const b of data.bookmarks) await d.put("bookmarks", b);
   for (const c of data.categories) await d.put("categories", c);
   for (const t of data.tags) await d.put("tags", t);
+  for (const m of data.macros) await d.put("macros", m);
   for (const p of photos) await d.put("photos", p.blob, p.id);
 }
 
-/** Sostituisce segnalibri, categorie e tag mantenendo le foto. */
+/** Sostituisce segnalibri, categorie, tag e macro mantenendo le foto. */
 export async function replaceData(data: AppData) {
   const d = await db();
-  await Promise.all([d.clear("bookmarks"), d.clear("categories"), d.clear("tags")]);
+  await Promise.all([d.clear("bookmarks"), d.clear("categories"), d.clear("tags"), d.clear("macros")]);
   for (const b of data.bookmarks) await d.put("bookmarks", b);
   for (const c of data.categories) await d.put("categories", c);
   for (const t of data.tags) await d.put("tags", t);
+  for (const m of data.macros) await d.put("macros", m);
 }

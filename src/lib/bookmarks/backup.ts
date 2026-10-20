@@ -1,6 +1,6 @@
 import { unzipSync, zipSync, strToU8, strFromU8 } from "fflate";
 import { getAllPhotos, replaceAll } from "./db";
-import { migrateBookmark, type AppData } from "./types";
+import { migrateBookmark, migrateCategory, migrateMacro, type AppData } from "./types";
 
 export async function exportBackup(data: AppData): Promise<Blob> {
   const files: Record<string, Uint8Array> = {
@@ -25,12 +25,9 @@ export async function importBackup(file: File): Promise<AppData> {
   >;
   const data: AppData = {
     bookmarks: rawBookmarks.filter((b) => b?.id).map(migrateBookmark),
-    categories: (parsed.categories ?? []).map((c) => ({
-      id: c.id,
-      name: c.name ?? "",
-      color: c.color ?? "#9ca3af",
-    })),
+    categories: (parsed.categories ?? []).map(migrateCategory),
     tags: (parsed.tags ?? []).map((t) => ({ id: t.id, name: t.name ?? "" })),
+    macros: (parsed.macros ?? []).map(migrateMacro),
   };
   const photos: Array<{ id: string; blob: Blob }> = [];
   for (const [name, bytes] of Object.entries(entries)) {
