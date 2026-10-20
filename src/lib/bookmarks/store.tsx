@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as db from "./db";
 import { uid, type AppData, type Bookmark, type Category, type Tag } from "./types";
 
-const EMPTY: AppData = { bookmarks: [], categories: [], tags: [] };
+const EMPTY: AppData = { bookmarks: [], categories: [], tags: [], macros: [] };
 const HISTORY_LIMIT = 50;
 
 export function useBookmarkStore() {
@@ -123,7 +123,7 @@ export function useBookmarkStore() {
 
   const addCategory = useCallback(
     async (name: string, color: string) => {
-      const c: Category = { id: uid(), name, color };
+      const c: Category = { id: uid(), name, color, emoji: "", macroId: null };
       const d = dataRef.current;
       await commit({ ...d, categories: [...d.categories, c] });
       return c;
