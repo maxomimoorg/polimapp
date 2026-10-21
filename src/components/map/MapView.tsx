@@ -22,6 +22,8 @@ interface Props {
   onOpen: (id: string) => void;
   onMove: (id: string, lat: number, lng: number) => void;
   onReady: (api: MapApi) => void;
+  distanceLayoutEnabled: boolean;
+  categoryOrder: string[];
 }
 
 export default function MapView({
@@ -33,7 +35,14 @@ export default function MapView({
   onOpen,
   onMove,
   onReady,
+  distanceLayoutEnabled,
+  categoryOrder,
 }: Props) {
+  const expandedRef = useRef<Map<string, [number, number]>>(new Map());
+  const categoryOrderRef = useRef(categoryOrder);
+  categoryOrderRef.current = categoryOrder;
+  const distanceLayoutEnabledRef = useRef(distanceLayoutEnabled);
+  distanceLayoutEnabledRef.current = distanceLayoutEnabled;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LType.Map | null>(null);
   const LRef = useRef<typeof LType | null>(null);
@@ -123,7 +132,12 @@ export default function MapView({
       el.addEventListener("pointerup", clear);
       el.addEventListener("pointercancel", clear);
 
-      map.on("zoomend moveend", () => scheduleLayout());
+      map.on("movestart zoomstart", resetExpandedGroup);
+      map.on("zoomend moveend", () => {
+        resetExpandedGroup();
+        scheduleLayout();
+      });
+      map.on("click", resetExpandedGroup);
 
       const clearPin = () => {
         if (pinMarkerRef.current) {
@@ -195,6 +209,69 @@ export default function MapView({
     if (layoutRafRef.current) cancelAnimationFrame(layoutRafRef.current);
     layoutRafRef.current = requestAnimationFrame(() => {
       layoutRafRef.current = null;
+  function resetExpandedGroup() {
+    for (const [id, original] of expandedRef.current) {
+      markersRef.current.get(id)?.setLatLng(original);
+    }
+    expandedRef.current.clear();
+  }
+
+  function expandOverlappingGroup(clickedId: string): boolean {
+    const L = LRef.current;
+    const map = mapRef.current;
+    if (!L || !map || distanceLayoutEnabledRef.current) return false;
+
+    const items = dataRef.current.map((bookmark) => {
+      const point = map.latLngToLayerPoint([bookmark.lat, bookmark.lng]);
+      return {
+        bookmark,
+        x: point.x,
+        y: point.y,
+        radius: markerDiameter(bookmark.priority) / 2,
+      };
+    });
+    const seed = items.find((item) => item.bookmark.id === clickedId);
+    if (!seed) return false;
+
+    // Costruisce il gruppo transitivo: A può sovrapporsi a B e B a C.
+    const group = new Set<string>([clickedId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const a of items) {
+        if (!group.has(a.bookmark.id)) continue;
+        for (const b of items) {
+          if (group.has(b.bookmark.id)) continue;
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const minDistance = a.radius + b.radius;
+          if (dx * dx + dy * dy < minDistance * minDistance) {
+            group.add(b.bookmark.id);
+            changed = true;
+          }
+        }
+      }
+    }
+    if (group.size < 2) return false;
+
+    const members = items.filter((item) => group.has(item.bookmark.id));
+    const centerX = seed.x;
+    const centerY = seed.y;
+    const maxDiameter = Math.max(...members.map((item) => item.radius * 2));
+    const ringRadius = Math.max(maxDiameter * members.length * 0.7, maxDiameter * 1.5);
+
+    members.forEach((item, index) => {
+      const original: [number, number] = [item.bookmark.lat, item.bookmark.lng];
+      expandedRef.current.set(item.bookmark.id, original);
+      const angle = (index / members.length) * Math.PI * 2 - Math.PI / 2;
+      const destination = L.point(
+        centerX + Math.cos(angle) * ringRadius,
+        centerY + Math.sin(angle) * ringRadius,
+      );
+      markersRef.current.get(item.bookmark.id)?.setLatLng(map.layerPointToLatLng(destination));
+    });
+    return true;
+  }
       layout();
     });
   }
@@ -203,6 +280,15 @@ export default function MapView({
     const L = LRef.current;
     const map = mapRef.current;
     if (!L || !map) return;
+    // Con il toggle spento, nessun calcolo di collisione: ripristina sempre le coordinate salvate.
+    if (!distanceLayoutEnabledRef.current) {
+      resetExpandedGroup();
+      for (const bookmark of dataRef.current) {
+        markersRef.current.get(bookmark.id)?.setLatLng([bookmark.lat, bookmark.lng]);
+        offsetRef.current.set(bookmark.id, { dx: 0, dy: 0 });
+      }
+      return;
+    }
 
     // Calcola le collisioni solo nell'area visibile (+25% di margine fuori schermo)
     const bounds = map.getBounds().pad(0.25);
@@ -254,11 +340,24 @@ export default function MapView({
         sigRef.current.delete(id);
       }
     }
-
+    const categoryRank = new Map(categoryOrderRef.current.map((id, index) => [id, index]));
+    const orderedForStacking = [...bookmarks].sort((a, b) => {
+      // In ordine crescente: gli elementi che devono stare dietro vengono prima.
+      const byPriority = a.priority - b.priority;
+      if (byPriority !== 0) return byPriority;
+      const byNovelty = a.createdAt - b.createdAt;
+      if (byNovelty !== 0) return byNovelty;
+      const aCategory = categoryRank.get(a.categoryId ?? "") ?? -1;
+      const bCategory = categoryRank.get(b.categoryId ?? "") ?? -1;
+      // La categoria che appare prima nell'elenco del filtro finisce davanti.
+      return bCategory - aCategory;
+    });
+    const stackingRank = new Map(orderedForStacking.map((bookmark, index) => [bookmark.id, index]));
     for (const b of bookmarks) {
       const d = markerDiameter(b.priority);
       const sig = `${b.priority}|${cbRef.current.colorOf(b)}|${avatarKey(bookmarkAvatar(b, categoriesById, photoUrls))}`;
       let marker = markersRef.current.get(b.id);
+      marker?.setZIndexOffset((stackingRank.get(b.id) ?? 0) * 1000);
       const icon = L.divIcon({
         className: "bm-marker-wrap",
         html: iconHtml(b),
@@ -267,6 +366,7 @@ export default function MapView({
       });
       if (!marker) {
         marker = L.marker([b.lat, b.lng], { icon, riseOnHover: true }).addTo(map);
+        marker.setZIndexOffset((stackingRank.get(b.id) ?? 0) * 1000);
         markersRef.current.set(b.id, marker);
         attachMarkerEvents(b.id, marker);
       } else if (sigRef.current.get(b.id) !== sig) {
@@ -280,7 +380,7 @@ export default function MapView({
       fitAllRef.current();
     }
     scheduleLayout();
-  }, [bookmarks, photoUrls, categoriesById]);
+  }, [bookmarks, photoUrls, categoriesById, categoryOrder, distanceLayoutEnabled]);
 
   function attachMarkerEvents(id: string, marker: LType.Marker) {
     const L = LRef.current;
@@ -364,7 +464,12 @@ export default function MapView({
         stopDrag(true);
         return;
       }
-      if (!moved) cbRef.current.onOpen(id);
+      if (!moved) {
+        // Primo clic: separa il gruppo e non apre ancora un segnalibro.
+        if (expandOverlappingGroup(id)) return;
+        // Clic su un marker già separato (o non sovrapposto): apre il segnalibro.
+        cbRef.current.onOpen(id);
+      }
     });
 
     el.addEventListener("pointercancel", () => {
