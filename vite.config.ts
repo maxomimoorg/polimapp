@@ -9,11 +9,17 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
-    spa: { enabled: true, prerender: { outputPath: "/index.html" } },
+    spa: { 
+      enabled: true, 
+      prerender: { outputPath: "/index.html" } 
+    },
     router: { basepath: "/polimapp/" },
   },
   vite: {
     base: "/polimapp/",
+    build: {
+      target: "esnext",
+    },
     optimizeDeps: { include: ["maplibre-gl", "@maplibre/maplibre-gl-leaflet"] },
   },
 });
