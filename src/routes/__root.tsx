@@ -11,6 +11,11 @@ import {
 import { type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", () => {
+    window.location.reload();
+  });
+}
 
 function NotFoundComponent() {
   return (
