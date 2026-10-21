@@ -8,6 +8,8 @@ import { addOfflineBase, createOnlineController, type MapMode } from "./basemap"
 
 export interface MapApi {
   flyTo: (lat: number, lng: number) => void;
+  showPin: (lat: number, lng: number) => void;
+  clearPin: () => void;
   fitAll: () => void;
 }
 
@@ -35,6 +37,7 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LType.Map | null>(null);
   const LRef = useRef<typeof LType | null>(null);
+  const pinMarkerRef = useRef<LType.Marker | null>(null);
   const markersRef = useRef<Map<string, LType.Marker>>(new Map());
   const sigRef = useRef<Map<string, string>>(new Map());
   const offsetRef = useRef<Map<string, { dx: number; dy: number }>>(new Map());
@@ -122,8 +125,40 @@ export default function MapView({
 
       map.on("zoomend moveend", () => layout());
 
+      const clearPin = () => {
+        if (pinMarkerRef.current) {
+          pinMarkerRef.current.remove();
+          pinMarkerRef.current = null;
+        }
+      };
+
+      const showPin = (lat: number, lng: number) => {
+        if (!LRef.current || !mapRef.current) return;
+        const L = LRef.current;
+        const map = mapRef.current;
+
+        // Rimuove l'eventuale puntino precedente prima di posizionare il nuovo
+        clearPin();
+
+        // Puntino fucsia con anello bianco e ombra
+        const pin = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: "search-coord-pin",
+            html: '<div style="width:16px;height:16px;border-radius:50%;background:#ff0080;border:2.5px solid #ffffff;box-shadow:0 0 0 4px rgba(255,0,128,0.35),0 2px 6px rgba(0,0,0,0.6);"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          }),
+          interactive: false,
+          zIndexOffset: 1000,
+        }).addTo(map);
+
+        pinMarkerRef.current = pin;
+      };
+
       onReady({
         flyTo: (lat, lng) => map.flyTo([lat, lng], Math.max(map.getZoom(), 13), { duration: 0.8 }),
+        showPin,
+        clearPin,
         fitAll,
       });
       if (!didFitRef.current && dataRef.current.length > 0) {
@@ -140,6 +175,8 @@ export default function MapView({
       mapRef.current = null;
       markersRef.current.clear();
       sigRef.current.clear();
+      pinMarkerRef.current?.remove();
+      pinMarkerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
