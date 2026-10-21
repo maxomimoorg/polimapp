@@ -4,7 +4,7 @@ import type { Bookmark, Category } from "@/lib/bookmarks/types";
 import { avatarInnerHtml, avatarKey, bookmarkAvatar } from "@/lib/bookmarks/avatar";
 import { markerDiameter, priorityStyle } from "@/lib/bookmarks/priority";
 import { spreadOverlapping } from "./cluster";
-import { addOfflineBase, createOnlineController, type MapMode } from "./basemap";
+import { createOnlineController, type MapMode } from "./basemap";
 
 export interface MapApi {
   flyTo: (lat: number, lng: number) => void;
@@ -66,8 +66,7 @@ export default function MapView({
       }).setView([42.6, 12.5], 3);
       mapRef.current = map;
 
-      // base locale sempre presente (offline), dettaglio OpenFreeMap sopra quando raggiungibile
-      void addOfflineBase(L, map).catch(() => undefined);
+      // Gestisce il caricamento: controlla la linea e carica online se presente, o passa alla base offline se assente/errore
       stopOnlineRef.current = createOnlineController(L, map, setMode);
 
       const fitAll = () => {
