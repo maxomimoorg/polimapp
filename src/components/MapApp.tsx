@@ -109,6 +109,24 @@ export default function MapApp() {
   const [filter, setFilter] = useState<FilterState>(defaultFilter);
   const [panel, setPanel] = useState<PanelKind>(null);
   const [editing, setEditing] = useState<Bookmark | null>(null);
+  const [distanceLayoutEnabled, setDistanceLayoutEnabled] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDistanceLayoutEnabled(localStorage.getItem("polimapp.distance-layout.v1") === "true");
+    } catch {
+      setDistanceLayoutEnabled(false);
+    }
+  }, []);
+
+  const changeDistanceLayout = useCallback((enabled: boolean) => {
+    setDistanceLayoutEnabled(enabled);
+    try {
+      localStorage.setItem("polimapp.distance-layout.v1", String(enabled));
+    } catch {
+      // Se lo storage non è disponibile, l'opzione resta valida solo fino alla chiusura dell'app.
+    }
+  }, []);
   const apiRef = useRef<MapApi | null>(null);
 
   // filtro persistente: caricato dopo l'idratazione, salvato a ogni modifica
@@ -193,6 +211,8 @@ export default function MapApp() {
       >
         <MapView
           bookmarks={visible}
+          distanceLayoutEnabled={distanceLayoutEnabled}
+          categoryOrder={store.data.categories.map((category) => category.id)}
           photoUrls={store.photoUrls}
           categoriesById={store.categoriesById}
           colorOf={colorOf}
@@ -271,7 +291,12 @@ export default function MapApp() {
           ) : panel === "filter" ? (
             <FilterPanel store={store} filter={filter} setFilter={setFilter} />
           ) : (
-            <OptionsPanel store={store} onClose={() => setPanel(null)} />
+            <OptionsPanel
+              store={store}
+              onClose={() => setPanel(null)}
+              distanceLayoutEnabled={distanceLayoutEnabled}
+              onDistanceLayoutChange={changeDistanceLayout}
+            />
           )}
         </Overlay>
       ) : null}
