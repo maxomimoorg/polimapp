@@ -1,7 +1,7 @@
 // Service worker di MapP: cache della shell e della base offline Natural Earth.
 // Le risorse del provider online (OpenFreeMap) usano la normale cache HTTP del browser.
 // I percorsi sono relativi allo scope, così funziona anche sotto /polimapp/.
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `mapp-shell-${VERSION}`;
 const SCOPE = self.registration.scope; // es. https://host/polimapp/
 const PRECACHE = [
