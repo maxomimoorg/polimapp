@@ -5,7 +5,7 @@ export interface ClusterInput {
   diameter: number;
 }
 
-/** distance/radius ratio at which two equal circles overlap by `frac` of their area */
+/** Rapporto distanza/raggio con sovrapposizione dell'area pari a frac */
 function distanceRatioForOverlap(frac: number): number {
   const target = frac * Math.PI;
   const area = (k: number) => 2 * Math.acos(k / 2) - (k / 2) * Math.sqrt(Math.max(0, 4 - k * k));
@@ -19,7 +19,7 @@ function distanceRatioForOverlap(frac: number): number {
   return (lo + hi) / 2;
 }
 
-/** rapporto minimo distanza/raggio con sovrapposizione max dell'1% dell'area */
+/** Rapporto minimo distanza/raggio con sovrapposizione max dell'1% dell'area */
 const MAX_OVERLAP_RATIO = distanceRatioForOverlap(0.01);
 
 interface Placed {
@@ -28,43 +28,83 @@ interface Placed {
   r: number;
 }
 
-function minDistance(rA: number, rB: number) {
-  return MAX_OVERLAP_RATIO * ((rA + rB) / 2);
-}
+/** 
+ * Griglia spaziale a celle per collisioni O(1):
+ * cerca conflitti solo nelle celle limitrofe anziché scorrere tutti i marker.
+ */
+class SpatialGrid {
+  private cellSize: number;
+  private grid = new Map<string, Placed[]>();
 
-function collides(x: number, y: number, r: number, placed: Placed[]) {
-  for (const p of placed) {
-    if (Math.hypot(p.x - x, p.y - y) < minDistance(r, p.r)) return true;
+  constructor(cellSize: number = 64) {
+    this.cellSize = cellSize;
   }
-  return false;
+
+  insert(p: Placed) {
+    const cx = Math.floor(p.x / this.cellSize);
+    const cy = Math.floor(p.y / this.cellSize);
+    const k = `${cx}:${cy}`;
+    let cell = this.grid.get(k);
+    if (!cell) {
+      cell = [];
+      this.grid.set(k, cell);
+    }
+    cell.push(p);
+  }
+
+  collides(x: number, y: number, r: number, maxRadius: number): boolean {
+    const searchDist = r + maxRadius;
+    const minCx = Math.floor((x - searchDist) / this.cellSize);
+    const maxCx = Math.floor((x + searchDist) / this.cellSize);
+    const minCy = Math.floor((y - searchDist) / this.cellSize);
+    const maxCy = Math.floor((y + searchDist) / this.cellSize);
+
+    for (let cx = minCx; cx <= maxCx; cx++) {
+      for (let cy = minCy; cy <= maxCy; cy++) {
+        const cell = this.grid.get(`${cx}:${cy}`);
+        if (!cell) continue;
+        for (const p of cell) {
+          const minD = MAX_OVERLAP_RATIO * ((r + p.r) / 2);
+          const dx = p.x - x;
+          const dy = p.y - y;
+          if (dx * dx + dy * dy < minD * minD) return true;
+        }
+      }
+    }
+    return false;
+  }
 }
 
 /**
- * Posiziona i marker mantenendo al massimo l'1% di sovrapposizione d'area:
- * ogni marker in conflitto viene spostato nel primo spazio libero disponibile
- * più vicino alla sua posizione reale (ricerca a spirale).
+ * Posiziona i marker mantenendo al massimo l'1% di sovrapposizione:
+ * ogni marker in conflitto viene spostato nello spazio libero più vicino (ricerca a spirale).
  */
 export function spreadOverlapping(items: ClusterInput[]): Record<string, { x: number; y: number }> {
   const out: Record<string, { x: number; y: number }> = {};
-  const placed: Placed[] = [];
-  // i marker più grandi (priorità alta) restano nella posizione reale
+  if (items.length === 0) return out;
+
+  // I marker più grandi (priorità alta) mantengono la posizione reale
   const order = [...items].sort((a, b) => b.diameter - a.diameter);
+  const maxDiameter = order[0]?.diameter ?? 32;
+  const maxR = maxDiameter / 2;
+  const grid = new SpatialGrid(Math.max(48, maxDiameter));
 
   for (const item of order) {
     const r = item.diameter / 2;
     let x = item.x;
     let y = item.y;
-    if (collides(x, y, r, placed)) {
-      const step = Math.max(4, r * 0.5);
+
+    if (grid.collides(x, y, r, maxR)) {
+      const step = Math.max(5, r * 0.5);
       let found = false;
-      for (let ring = 1; ring <= 40 && !found; ring++) {
+      for (let ring = 1; ring <= 24 && !found; ring++) {
         const radius = ring * step;
         const count = Math.max(8, Math.round((2 * Math.PI * radius) / step));
         for (let i = 0; i < count; i++) {
           const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
           const cx = item.x + Math.cos(angle) * radius;
           const cy = item.y + Math.sin(angle) * radius;
-          if (!collides(cx, cy, r, placed)) {
+          if (!grid.collides(cx, cy, r, maxR)) {
             x = cx;
             y = cy;
             found = true;
@@ -73,7 +113,7 @@ export function spreadOverlapping(items: ClusterInput[]): Record<string, { x: nu
         }
       }
     }
-    placed.push({ x, y, r });
+    grid.insert({ x, y, r });
     out[item.id] = { x, y };
   }
   return out;
