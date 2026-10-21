@@ -44,6 +44,7 @@ export default function MapView({
   const dataRef = useRef<Bookmark[]>(bookmarks);
   const fitAllRef = useRef<(() => void) | null>(null);
   const didFitRef = useRef(false);
+  const layoutRafRef = useRef<number | null>(null);
   const cbRef = useRef({ onCreate, onOpen, onMove, colorOf, photoUrls, categoriesById });
   cbRef.current = { onCreate, onOpen, onMove, colorOf, photoUrls, categoriesById };
   const [mode, setMode] = useState<MapMode>("loading");
@@ -122,7 +123,7 @@ export default function MapView({
       el.addEventListener("pointerup", clear);
       el.addEventListener("pointercancel", clear);
 
-      map.on("zoomend moveend", () => layout());
+      map.on("zoomend moveend", () => scheduleLayout());
 
       const clearPin = () => {
         if (pinMarkerRef.current) {
@@ -164,7 +165,7 @@ export default function MapView({
         didFitRef.current = true;
         fitAll();
       }
-      layout();
+      scheduleLayout();
     })();
     return () => {
       disposed = true;
@@ -176,6 +177,7 @@ export default function MapView({
       sigRef.current.clear();
       pinMarkerRef.current?.remove();
       pinMarkerRef.current = null;
+      if (layoutRafRef.current) cancelAnimationFrame(layoutRafRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -189,16 +191,47 @@ export default function MapView({
     return `<div class="bm-marker" style="width:${d}px;height:${d}px;opacity:${opacity};border:${border}px solid ${color}">${avatarInnerHtml(avatar)}</div>`;
   }
 
+  function scheduleLayout() {
+    if (layoutRafRef.current) cancelAnimationFrame(layoutRafRef.current);
+    layoutRafRef.current = requestAnimationFrame(() => {
+      layoutRafRef.current = null;
+      layout();
+    });
+  }
+
   function layout() {
     const L = LRef.current;
     const map = mapRef.current;
     if (!L || !map) return;
-    const items = dataRef.current.map((b) => {
-      const p = map.latLngToLayerPoint([b.lat, b.lng]);
-      return { id: b.id, x: p.x, y: p.y, diameter: markerDiameter(b.priority) };
-    });
-    const placed = spreadOverlapping(items);
-    for (const item of items) {
+
+    // Calcola le collisioni solo nell'area visibile (+25% di margine fuori schermo)
+    const bounds = map.getBounds().pad(0.25);
+    const visibleItems: import("./cluster").ClusterInput[] = [];
+
+    for (const b of dataRef.current) {
+      const marker = markersRef.current.get(b.id);
+      const isVisible = bounds.contains([b.lat, b.lng]);
+
+      // DOM Culling: nasconde gli elementi fuori schermo per alleggerire GPU e compositing
+      const el = marker?.getElement();
+      if (el) {
+        if (!isVisible) {
+          el.style.display = "none";
+        } else {
+          el.style.removeProperty("display");
+        }
+      }
+
+      if (isVisible) {
+        const p = map.latLngToLayerPoint([b.lat, b.lng]);
+        visibleItems.push({ id: b.id, x: p.x, y: p.y, diameter: markerDiameter(b.priority) });
+      } else {
+        offsetRef.current.delete(b.id);
+      }
+    }
+
+    const placed = spreadOverlapping(visibleItems);
+    for (const item of visibleItems) {
       const marker = markersRef.current.get(item.id);
       const pos = placed[item.id];
       if (!marker || !pos) continue;
@@ -246,7 +279,7 @@ export default function MapView({
       didFitRef.current = true;
       fitAllRef.current();
     }
-    layout();
+    scheduleLayout();
   }, [bookmarks, photoUrls, categoriesById]);
 
   function attachMarkerEvents(id: string, marker: LType.Marker) {
