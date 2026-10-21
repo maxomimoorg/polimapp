@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { BookmarkStore } from "@/lib/bookmarks/store";
 import { exportBackup, parseZipBackup } from "@/lib/bookmarks/backup";
