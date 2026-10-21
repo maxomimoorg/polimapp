@@ -43,6 +43,13 @@ export default function MapView({
   categoryOrderRef.current = categoryOrder;
   const distanceLayoutEnabledRef = useRef(distanceLayoutEnabled);
   distanceLayoutEnabledRef.current = distanceLayoutEnabled;
+
+  function resetExpandedGroup() {
+    for (const [id, original] of expandedRef.current) {
+      markersRef.current.get(id)?.setLatLng(original);
+    }
+    expandedRef.current.clear();
+  }
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LType.Map | null>(null);
   const LRef = useRef<typeof LType | null>(null);
@@ -209,12 +216,6 @@ export default function MapView({
     if (layoutRafRef.current) cancelAnimationFrame(layoutRafRef.current);
     layoutRafRef.current = requestAnimationFrame(() => {
       layoutRafRef.current = null;
-  function resetExpandedGroup() {
-    for (const [id, original] of expandedRef.current) {
-      markersRef.current.get(id)?.setLatLng(original);
-    }
-    expandedRef.current.clear();
-  }
 
   function expandOverlappingGroup(clickedId: string): boolean {
     const L = LRef.current;
