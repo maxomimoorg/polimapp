@@ -224,7 +224,12 @@ export default function MapApp() {
             type="button"
             aria-label={label}
             className="float-btn pointer-events-auto"
-            onClick={() => setPanel((p) => (p === kind ? null : kind))}
+            onClick={() => {
+              if (kind === "filter" || kind === "options") {
+                apiRef.current?.clearPin();
+              }
+              setPanel((p) => (p === kind ? null : kind));
+            }}
           >
             <Icon className="h-5 w-5" />
           </button>
@@ -259,6 +264,7 @@ export default function MapApp() {
               store={store}
               onGoTo={(lat, lng) => {
                 apiRef.current?.flyTo(lat, lng);
+                apiRef.current?.showPin(lat, lng);
                 setPanel(null);
               }}
             />
