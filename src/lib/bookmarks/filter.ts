@@ -1,8 +1,10 @@
-import type { Bookmark } from "./types";
+import type { Bookmark, Category } from "./types";
 
 export interface FilterState {
   excludedCategories: string[]; // category ids ("none" = senza categoria)
   excludedTags: string[]; // tag ids ("none" = senza tag)
+  /** Macro disattivate: nascondono le loro categorie senza toccare excludedCategories. */
+  excludedMacros: string[];
   priority: number;
   priorityMode: "gt" | "lt";
 }
@@ -10,6 +12,7 @@ export interface FilterState {
 export const defaultFilter: FilterState = {
   excludedCategories: [],
   excludedTags: [],
+  excludedMacros: [],
   priority: 0,
   priorityMode: "gt",
 };
@@ -26,6 +29,7 @@ export function loadFilter(): FilterState {
     return {
       excludedCategories: Array.isArray(p.excludedCategories) ? p.excludedCategories.map(String) : [],
       excludedTags: Array.isArray(p.excludedTags) ? p.excludedTags.map(String) : [],
+      excludedMacros: Array.isArray(p.excludedMacros) ? p.excludedMacros.map(String) : [],
       priority: typeof p.priority === "number" ? p.priority : defaultFilter.priority,
       priorityMode: p.priorityMode === "lt" ? "lt" : "gt",
     };
@@ -43,10 +47,15 @@ export function saveFilter(f: FilterState): void {
   }
 }
 
-export function matchesFilter(b: Bookmark, f: FilterState): boolean {
-
+export function matchesFilter(
+  b: Bookmark,
+  f: FilterState,
+  categoriesById: Record<string, Category | undefined> = {},
+): boolean {
   const catKey = b.categoryId ?? "none";
   if (f.excludedCategories.includes(catKey)) return false;
+  const macroId = b.categoryId ? categoriesById[b.categoryId]?.macroId : null;
+  if (macroId && (f.excludedMacros ?? []).includes(macroId)) return false;
 
   if (b.tags.length === 0) {
     if (f.excludedTags.includes("none")) return false;

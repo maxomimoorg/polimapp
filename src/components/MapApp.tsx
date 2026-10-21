@@ -130,8 +130,8 @@ export default function MapApp() {
   }, []);
 
   const visible = useMemo(
-    () => store.data.bookmarks.filter((b) => matchesFilter(b, filter)),
-    [store.data.bookmarks, filter],
+    () => store.data.bookmarks.filter((b) => matchesFilter(b, filter, store.categoriesById)),
+    [store.data.bookmarks, filter, store.categoriesById],
   );
 
   const colorOf = useCallback(
