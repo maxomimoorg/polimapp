@@ -74,9 +74,13 @@ function Summary({ s }: { s: ImportSummary }) {
 export function OptionsPanel({
   store,
   onClose: _onClose,
+  distanceLayoutEnabled,
+  onDistanceLayoutChange,
 }: {
   store: BookmarkStore;
   onClose: () => void;
+  distanceLayoutEnabled: boolean;
+  onDistanceLayoutChange: (enabled: boolean) => void;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -124,6 +128,20 @@ export function OptionsPanel({
     <div>
       <h2 className="mb-3 text-sm font-semibold tracking-wide">Opzioni</h2>
       <div className="space-y-2">
+        <div className="rounded-md border border-white/15 p-3">
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>Allontana automaticamente i segnalibri sovrapposti</span>
+            <input
+              type="checkbox"
+              checked={distanceLayoutEnabled}
+              onChange={(e) => onDistanceLayoutChange(e.target.checked)}
+              aria-label="Attiva il riposizionamento automatico dei segnalibri"
+            />
+          </label>
+          <p className="mt-1 text-[11px] text-white/50">
+            Disattivato: i segnalibri restano sulle coordinate salvate. Attivalo per spostarli temporaneamente e ridurre le sovrapposizioni.
+          </p>
+        </div>
         <p className="text-[11px] uppercase tracking-wide text-white/50">
           Backup foglio di calcolo (consigliato)
         </p>
