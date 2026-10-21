@@ -331,6 +331,7 @@ export default function MapView({
     const L = LRef.current;
     const map = mapRef.current;
     if (!L || !map) return;
+    resetExpandedGroup();
 
     const alive = new Set(bookmarks.map((b) => b.id));
     for (const [id, m] of markersRef.current) {
