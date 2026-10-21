@@ -10,6 +10,8 @@ import {
   type MergePlan,
 } from "@/lib/bookmarks/merge";
 import { getPhoto } from "@/lib/bookmarks/db";
+import { parseXlsxBackup } from "@/lib/bookmarks/xlsx-import";
+import { exportXlsx } from "@/lib/bookmarks/xlsx-export";
 
 type Mode = "add" | "replace";
 
@@ -24,7 +26,6 @@ function download(blob: Blob, name: string) {
 
 async function readBackup(f: File, onProgress: (label: string) => void) {
   if (/\.xlsx$/i.test(f.name)) {
-    const { parseXlsxBackup } = await import("@/lib/bookmarks/xlsx-import");
     return parseXlsxBackup(f, { onProgress: (d, t, l) => onProgress(`${l} ${d}/${t}`) });
   }
   if (/\.zip$/i.test(f.name)) return parseZipBackup(f);
@@ -132,7 +133,6 @@ export function OptionsPanel({
           onClick={async () => {
             setBusy("Preparazione XLSX…");
             try {
-              const { exportXlsx } = await import("@/lib/bookmarks/xlsx-export");
               const blob = await exportXlsx(store.data, {
                 getPhoto,
                 onProgress: (d, t, l) => setBusy(`${l} ${d}/${t}`),
