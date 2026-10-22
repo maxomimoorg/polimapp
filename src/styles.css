@@ -363,6 +363,35 @@ select.panel-input optgroup {
   background-color: rgb(0 0 0 / 0.18);
 }
 
+/* Aggregazione cluster: contenitore relativo e badge con conteggio */
+.bm-marker-cluster {
+  position: relative;
+  display: block;
+}
+
+.bm-cluster-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background-color: #0c0c10;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 20;
+  user-select: none;
+}
+
 .leaflet-marker-icon.bm-dragging {
   touch-action: none;
   z-index: 1000 !important;
