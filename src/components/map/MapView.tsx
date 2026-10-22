@@ -54,6 +54,8 @@ export default function MapView({
   const expandedRef = useRef<Map<string, [number, number]>>(new Map());
   const expandedGroupIdsRef = useRef<Set<string>>(new Set());
   const clusterMembersRef = useRef<Map<string, Bookmark[]>>(new Map());
+  const shownRef = useRef<Set<string>>(new Set());
+  const stackingRankRef = useRef<Map<string, number>>(new Map());
   const dataRef = useRef<Bookmark[]>(bookmarks);
   const categoryOrderRef = useRef(categoryOrder);
   const fitAllRef = useRef<(() => void) | null>(null);
@@ -172,9 +174,16 @@ export default function MapView({
     if (!leader) return false;
 
     const members = [leader, ...hiddenMembers];
-    const center = map.latLngToLayerPoint([leader.lat, leader.lng]);
+    const center = map.latLngToContainerPoint([leader.lat, leader.lng]);
+    const size = map.getSize();
     const maxDiameter = Math.max(...members.map((b) => markerDiameter(b.priority)));
-    const radius = Math.max(52, maxDiameter * Math.max(1.5, members.length * 0.55));
+    // Spirale di Archimede compatta: dall'interno verso l'esterno.
+    const baseRadius = Math.max(28, maxDiameter * 0.9);
+    const radiusStep = Math.max(4, maxDiameter * 0.18);
+    const angleStep = 2.4; // ~137°, distribuzione uniforme senza allineamenti
+    const margin = 28;
+    const clamp = (v: number, max: number) =>
+      Math.min(Math.max(v, margin), Math.max(margin, max - margin));
 
     members.forEach((bookmark, index) => {
       let marker = markersRef.current.get(bookmark.id);
@@ -192,14 +201,16 @@ export default function MapView({
       expandedGroupIdsRef.current.add(bookmark.id);
 
       if (!map.hasLayer(marker)) marker.addTo(map);
+      shownRef.current.add(bookmark.id);
 
-      const angle = (index / members.length) * Math.PI * 2 - Math.PI / 2;
+      const angle = index * angleStep - Math.PI / 2;
+      const radius = baseRadius + index * radiusStep;
       const point = L.point(
-        center.x + Math.cos(angle) * radius,
-        center.y + Math.sin(angle) * radius,
+        clamp(center.x + Math.cos(angle) * radius, size.x),
+        clamp(center.y + Math.sin(angle) * radius, size.y),
       );
 
-      marker.setLatLng(map.layerPointToLatLng(point));
+      marker.setLatLng(map.containerPointToLatLng(point));
       marker.setZIndexOffset(100000 + index);
       offsetRef.current.set(bookmark.id, { dx: 0, dy: 0 });
       attachMarkerEvents(bookmark.id, marker);
@@ -374,41 +385,44 @@ export default function MapView({
     const { leaders } = buildClusters(visibleItems);
     clusterMembersRef.current = leaders;
 
-    const ranks = new Map(categoryOrderRef.current.map((id, index) => [id, index]));
-    const stackOrder = [...currentBookmarks].sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
-      return categoryRank(b, ranks) - categoryRank(a, ranks);
-    });
-    const stackingRank = new Map(
-      stackOrder.map((bookmark, index) => [bookmark.id, index]),
-    );
+    const stackingRank = stackingRankRef.current;
+    const byId = new Map(currentBookmarks.map((b) => [b.id, b]));
 
-    const visibleLeaderIds = new Set(leaders.keys());
+    // Rimuove solo i marker che erano a schermo e non sono più leader visibili.
+    for (const id of shownRef.current) {
+      if (leaders.has(id)) continue;
+      const marker = markersRef.current.get(id);
+      if (marker && map.hasLayer(marker)) marker.remove();
+      shownRef.current.delete(id);
+    }
 
-    for (const bookmark of currentBookmarks) {
-      const marker = markersRef.current.get(bookmark.id);
-      if (!marker) continue;
+    // Aggiorna esclusivamente i leader visibili.
+    for (const [id, hidden] of leaders) {
+      const bookmark = byId.get(id);
+      if (!bookmark) continue;
 
-      if (!visibleLeaderIds.has(bookmark.id)) {
-        if (map.hasLayer(marker)) marker.remove();
-        continue;
+      let marker = markersRef.current.get(id);
+      if (!marker) {
+        marker = L.marker([bookmark.lat, bookmark.lng], {
+          icon: makeIcon(L, bookmark, hidden.length),
+          riseOnHover: false,
+        });
+        markersRef.current.set(id, marker);
+        sigRef.current.set(id, markerSignature(bookmark, hidden.length));
       }
 
-      const hiddenCount = leaders.get(bookmark.id)?.length ?? 0;
-      const signature = markerSignature(bookmark, hiddenCount);
-
+      const signature = markerSignature(bookmark, hidden.length);
       marker.setLatLng([bookmark.lat, bookmark.lng]);
-      marker.setZIndexOffset(stackingRank.get(bookmark.id) ?? 0);
+      marker.setZIndexOffset(stackingRank.get(id) ?? 0);
 
-      if (sigRef.current.get(bookmark.id) !== signature) {
-        marker.setIcon(makeIcon(L, bookmark, hiddenCount));
-        sigRef.current.set(bookmark.id, signature);
+      if (sigRef.current.get(id) !== signature) {
+        marker.setIcon(makeIcon(L, bookmark, hidden.length));
+        sigRef.current.set(id, signature);
       }
 
       if (!map.hasLayer(marker)) marker.addTo(map);
-      attachMarkerEvents(bookmark.id, marker);
-      offsetRef.current.set(bookmark.id, { dx: 0, dy: 0 });
+      shownRef.current.add(id);
+      attachMarkerEvents(id, marker);
     }
   }
 
@@ -605,36 +619,32 @@ export default function MapView({
       }
     }
 
+    // Ordine di sovrapposizione: calcolato solo quando cambiano i dati.
     const ranks = new Map(categoryOrderRef.current.map((id, index) => [id, index]));
     const stackOrder = [...current].sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
       return categoryRank(b, ranks) - categoryRank(a, ranks);
     });
-    const stackingRank = new Map(
+    stackingRankRef.current = new Map(
       stackOrder.map((bookmark, index) => [bookmark.id, index]),
     );
 
+    // Istanze solo in memoria: sarà layout() ad aggiungere i leader visibili.
     for (const bookmark of current) {
       const signature = markerSignature(bookmark);
-      let marker = markersRef.current.get(bookmark.id);
+      const marker = markersRef.current.get(bookmark.id);
 
       if (!marker) {
-        marker = L.marker(
-          [bookmark.lat, bookmark.lng],
-          { icon: makeIcon(L, bookmark), riseOnHover: false },
+        markersRef.current.set(
+          bookmark.id,
+          L.marker([bookmark.lat, bookmark.lng], {
+            icon: makeIcon(L, bookmark),
+            riseOnHover: false,
+          }),
         );
-
-        markersRef.current.set(bookmark.id, marker);
-        sigRef.current.set(bookmark.id, signature);
-      } else if (sigRef.current.get(bookmark.id) !== signature) {
-        marker.setIcon(makeIcon(L, bookmark));
         sigRef.current.set(bookmark.id, signature);
       }
-
-      marker.setZIndexOffset(stackingRank.get(bookmark.id) ?? 0);
-      if (!map.hasLayer(marker)) marker.addTo(map);
-      attachMarkerEvents(bookmark.id, marker);
     }
 
     if (!didFitRef.current && current.length > 0 && fitAllRef.current) {
