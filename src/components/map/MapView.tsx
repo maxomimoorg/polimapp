@@ -31,7 +31,7 @@ interface ScreenBookmark {
   radius: number;
 }
 
-const SIGNIFICANT_OVERLAP_RATIO = 0.25;
+const SIGNIFICANT_OVERLAP_RATIO = 0.45;
 const GRID_CELL_SIZE = 96;
 
 export default function MapView({
