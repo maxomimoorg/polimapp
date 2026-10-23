@@ -11,7 +11,7 @@ import {
   notesHtmlToText,
 } from "./xlsx-common";
 import type { AppData, Category } from "./types";
-import { embedCellImages, type CellImage } from "./xlsx-cell-images";
+
 
 export type Progress = (done: number, total: number, label: string) => void;
 
@@ -64,14 +64,25 @@ export function legendRows(data: AppData) {
   return rows;
 }
 
-/** Segnaposto scritto nella cella Foto e poi sostituito dall'immagine nella cella. */
-const PHOTO_PLACEHOLDER = "foto";
+function jpegDataUri(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+
+  return `data:image/jpeg;base64,${btoa(binary)}`;
+}
+
+
+
+
 
 export async function buildXlsxWorkbook(
   data: AppData,
   opts: XlsxExportOptions,
-): Promise<{ wb: ExcelJS.Workbook; images: CellImage[] }> {
-  const images: CellImage[] = [];
+): Promise<ExcelJS.Workbook> {
   const Excel = await loadExcel();
   const wb = new Excel.Workbook();
   wb.creator = "PoliMapP";
@@ -116,10 +127,19 @@ export async function buildXlsxWorkbook(
         const blob = await opts.getPhoto(b.photoId);
         if (blob) {
           const jpg = await toJpeg(blob, PHOTO_PX * 2);
-          // immagine incorporata NELLA cella Foto (non flottante): vedi xlsx-cell-images.ts
-          row.getCell(3).value = PHOTO_PLACEHOLDER;
-          images.push({ ref: `C${row.number}`, jpg });
-          row.height = PHOTO_PX * 0.75 + 4;
+const imageId = wb.addImage({
+  base64: jpegDataUri(jpg),
+  extension: "jpeg",
+});
+
+// C = indice colonna 2; ExcelJS numera le righe da 0 nelle coordinate dell'immagine.
+ws.addImage(imageId, {
+  tl: { col: 2, row: row.number - 1 },
+  ext: { width: PHOTO_PX, height: PHOTO_PX },
+  editAs: "oneCell",
+});
+
+row.height = PHOTO_PX * 0.75 + 4;
         }
       } catch {
         /* foto illeggibile: la riga resta senza immagine */
@@ -178,7 +198,7 @@ export async function buildXlsxWorkbook(
   st.addRow(["Versione formato", XLSX_FORMAT_VERSION]);
   st.addRow(["Data esportazione", (opts.now ?? new Date()).toISOString()]);
   st.addRow(["Versione app", APP_VERSION]);
-  return { wb, images };
+  return wb;
 }
 
 export async function exportXlsx(data: AppData, opts: XlsxExportOptions): Promise<Blob> {
@@ -188,9 +208,11 @@ export async function exportXlsx(data: AppData, opts: XlsxExportOptions): Promis
   });
 }
 
-/** Pacchetto XLSX finale, con le foto come immagini nella cella. */
-export async function exportXlsxBytes(data: AppData, opts: XlsxExportOptions): Promise<Uint8Array> {
-  const { wb, images } = await buildXlsxWorkbook(data, opts);
-  const buf = new Uint8Array((await wb.xlsx.writeBuffer()) as ArrayBuffer);
-  return embedCellImages(buf, SHEET_BOOKMARKS, images);
+/** Pacchetto XLSX con le foto come immagini standard ancorate al foglio. */
+export async function exportXlsxBytes(
+  data: AppData,
+  opts: XlsxExportOptions,
+): Promise<Uint8Array> {
+  const wb = await buildXlsxWorkbook(data, opts);
+  return new Uint8Array((await wb.xlsx.writeBuffer()) as ArrayBuffer);
 }
