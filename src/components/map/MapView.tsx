@@ -231,7 +231,7 @@ export default function MapView({
     const leader = dataRef.current.find((b) => b.id === leaderId);
     if (!leader) return false;
     const points = [leader, ...hidden].map((b) => [b.lat, b.lng] as [number, number]);
-    map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 18 });
+    map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 24 });
     return true;
   }
 
