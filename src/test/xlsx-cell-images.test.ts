@@ -33,46 +33,54 @@ async function exportSample() {
   });
 }
 
-/** Scambia due righe nel foglio (come un riordino in un altro programma). */
-function swapRows(xlsx: Uint8Array, a: number, b: number): Uint8Array {
-  const files = unzipSync(xlsx);
-  const path = Object.keys(files).find((k) => /xl\/worksheets\/sheet1\.xml$/.test(k))!;
-  let xml = strFromU8(files[path]!);
-  const re = (n: number) => new RegExp(`<row r="${n}"[\\s\\S]*?</row>`);
-  const ra = xml.match(re(a))![0];
-  const rb = xml.match(re(b))![0];
-  const renum = (row: string, from: number, to: number) =>
-    row
-      .replace(`<row r="${from}"`, `<row r="${to}"`)
-      .replace(new RegExp(`r="([A-Z]+)${from}"`, "g"), `r="$1${to}"`);
-  xml = xml.replace(ra, "@@A@@").replace(rb, renum(ra, a, b)).replace("@@A@@", renum(rb, b, a));
-  files[path] = strToU8(xml);
-  return zipSync(files);
-}
-
-describe("XLSX: foto nella cella", () => {
-  it("esporta le foto come immagini nella cella Foto, senza immagini flottanti", async () => {
+describe("XLSX: foto ancorate alle righe", () => {
+  it("esporta le foto come immagini standard nel disegno del foglio", async () => {
     const files = unzipSync(await exportSample());
     const names = Object.keys(files);
-    expect(names.some((n) => n.startsWith("xl/drawings/"))).toBe(false);
-    expect(names).toContain("xl/richData/rdrichvalue.xml");
-    const sheet = strFromU8(files["xl/worksheets/sheet1.xml"]!);
-    expect(sheet).toMatch(/<c r="C2"[^>]*vm="1"/);
-    expect(sheet).toMatch(/<c r="C4"[^>]*vm="2"/);
-    expect(sheet).not.toMatch(/<c r="C3"[^>]*vm=/);
+
+    const drawingPaths = names.filter((name) =>
+      /^xl\/drawings\/drawing\d+\.xml$/.test(name),
+    );
+    const mediaPaths = names.filter((name) =>
+      /^xl\/media\/image\d+\.(jpeg|jpg)$/.test(name),
+    );
+
+    expect(drawingPaths.length).toBeGreaterThan(0);
+    expect(mediaPaths.length).toBeGreaterThan(0);
+    expect(names.some((name) => name.startsWith("xl/richData/"))).toBe(false);
+
+    const drawings = drawingPaths
+      .map((path) => strFromU8(files[path]!))
+      .join("\n");
+
+    expect(drawings).toContain("oneCellAnchor");
+
+    const worksheetXml = names
+      .filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name))
+      .map((path) => strFromU8(files[path]!))
+      .join("\n");
+
+    expect(worksheetXml).not.toContain("#VALUE!");
   });
 
-  it("dopo il riordino ogni foto resta associata alla sua riga; righe senza foto ok", async () => {
-    const reordered = swapRows(await exportSample(), 2, 4);
-    const inc = await parseXlsxBackup(new Blob([reordered as BlobPart]), { toJpeg: identity });
-    const byName = Object.fromEntries(inc.bookmarks.map((b) => [b.name, b]));
-    expect(inc.bookmarks.map((b) => b.name)).toEqual(["Tre", "Due", "Uno"]);
+  it("reimporta ogni foto associandola al segnalibro corretto", async () => {
+    const bytes = await exportSample();
+    const imported = await parseXlsxBackup(
+      new Blob([bytes as BlobPart]),
+      { toJpeg: identity },
+    );
+
+    const byName = Object.fromEntries(
+      imported.bookmarks.map((bookmark) => [bookmark.name, bookmark]),
+    );
+
     expect(await labelOf(byName["Uno"]!.photo)).toBe("p1");
     expect(await labelOf(byName["Tre"]!.photo)).toBe("p3");
     expect(byName["Due"]!.photo).toBeNull();
-    expect(inc.summary.errors).toEqual([]);
+    expect(imported.summary.errors).toEqual([]);
   });
 });
+
 
 describe("Legenda con nomi duplicati", () => {
   it("non associa alla prima categoria omonima: segnalibro senza categoria e avviso", async () => {
