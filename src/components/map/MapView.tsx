@@ -231,7 +231,7 @@ export default function MapView({
     const leader = dataRef.current.find((b) => b.id === leaderId);
     if (!leader) return false;
     const points = [leader, ...hidden].map((b) => [b.lat, b.lng] as [number, number]);
-    map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 24 });
+    map.fitBounds(L.latLngBounds(points), { padding: [15, 15], maxZoom: 25 });
     return true;
   }
 
@@ -468,7 +468,7 @@ export default function MapView({
         );
         if (points.length === 0) return;
 
-        map.fitBounds(L.latLngBounds(points).pad(0.25), { maxZoom: 15 });
+        map.fitBounds(L.latLngBounds(points).pad(0.10), { maxZoom: 20 });
       };
 
       fitAllRef.current = fitAll;
