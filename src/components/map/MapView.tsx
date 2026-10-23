@@ -484,6 +484,20 @@ export default function MapView({
 
       fitAllRef.current = fitAll;
 
+      const GPS_MAX_ACCURACY_METERS = 50;
+      const GPS_STABLE_DISTANCE_METERS = 30;
+      const GPS_STABLE_FIXES_REQUIRED = 2;
+
+      let gpsCenteredThisActivation = false;
+      let gpsStableFixCount = 0;
+      let previousGpsCandidate: LType.LatLng | null = null;
+
+      const resetGpsAutoCenter = () => {
+        gpsCenteredThisActivation = false;
+        gpsStableFixCount = 0;
+        previousGpsCandidate = null;
+      };
+
       const setGpsActive = (active: boolean) => {
         gpsBtnRef.current?.classList.toggle("is-active", active);
       };
@@ -493,6 +507,7 @@ export default function MapView({
           navigator.geolocation.clearWatch(gpsWatchRef.current);
           gpsWatchRef.current = null;
         }
+        resetGpsAutoCenter();
         setGpsActive(false);
       };
 
@@ -507,10 +522,11 @@ export default function MapView({
           return;
         }
 
+        resetGpsAutoCenter();
         setGpsActive(true);
         gpsWatchRef.current = navigator.geolocation.watchPosition(
           (pos) => {
-            const { latitude, longitude } = pos.coords;
+            const { latitude, longitude, accuracy } = pos.coords;
             const latLng: [number, number] = [latitude, longitude];
 
             if (!gpsMarkerRef.current) {
@@ -529,7 +545,39 @@ export default function MapView({
               gpsMarkerRef.current.setLatLng(latLng);
             }
 
-            map.setView(latLng, Math.max(map.getZoom(), 16));
+            // Dopo il primo centraggio, aggiorna solo il puntatore:
+            // non modificare più centro o zoom della mappa.
+            if (gpsCenteredThisActivation) return;
+
+            // Considera solo rilevazioni abbastanza precise.
+            if (
+              !Number.isFinite(accuracy) ||
+              accuracy > GPS_MAX_ACCURACY_METERS
+            ) {
+              gpsStableFixCount = 0;
+              previousGpsCandidate = null;
+              return;
+            }
+
+            const currentFix = L.latLng(latLng);
+
+            // Richiede due rilevazioni precise e vicine tra loro.
+            if (
+              previousGpsCandidate &&
+              map.distance(previousGpsCandidate, currentFix) <=
+                GPS_STABLE_DISTANCE_METERS
+            ) {
+              gpsStableFixCount += 1;
+            } else {
+              gpsStableFixCount = 1;
+            }
+
+            previousGpsCandidate = currentFix;
+
+            if (gpsStableFixCount >= GPS_STABLE_FIXES_REQUIRED) {
+              gpsCenteredThisActivation = true;
+              map.setView(latLng, Math.max(map.getZoom(), 16));
+            }
           },
           (err) => {
             stopGpsWatch();
