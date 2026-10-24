@@ -324,7 +324,26 @@ export default function MapView({
 
     marker.on("click", (event: LType.LeafletMouseEvent) => {
       if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
-      if (suppressClickRef.current || dragging) return;
+
+      // Se il puntatore è ancora premuto, non aprire il segnalibro.
+      if (pointerId !== null) {
+        if (event.originalEvent) {
+          L.DomEvent.preventDefault(event.originalEvent);
+        }
+        return;
+      }
+
+      // Ignora una sola volta il click successivo a un drag lungo.
+      if (suppressClickRef.current === id) {
+        suppressClickRef.current = null;
+
+        if (event.originalEvent) {
+          L.DomEvent.preventDefault(event.originalEvent);
+        }
+        return;
+      }
+
+      if (dragging) return;
       if (zoomToCluster(id)) return;
       cbRef.current.onOpen(id);
     });
@@ -1423,7 +1442,16 @@ function buildClusters(items: ScreenBookmark[]) {
       };
 
       element.addEventListener("pointerdown", (event: PointerEvent) => {
-        if ((event.target as HTMLElement).closest(".bm-marker, .leaflet-control")) {
+        const target = event.target;
+
+        // Non avviare la creazione su nessuna parte del marker,
+        // compresi il contenitore esterno e il badge del cluster.
+        if (
+          target instanceof Element &&
+          target.closest(
+            ".leaflet-marker-icon, .bm-marker-wrap, .bm-marker, .leaflet-control",
+          )
+        ) {
           return;
         }
 
