@@ -40,12 +40,12 @@ const SIGNIFICANT_OVERLAP_RATIO = 0.15;
 // Distanza massima tra un segnalibro e il leader a cui può unirsi.
 // È moltiplicata per la somma dei loro raggi: 0.5 significa che
 // i centri devono essere a non più di metà della somma dei raggi.
-const MAX_CLUSTER_DISTANCE_RATIO = 0.7;
+const MAX_CLUSTER_DISTANCE_RATIO = 0.9;
 
 // Griglia usata solo per cercare rapidamente i leader vicini.
 // Con le dimensioni attuali dei marker, la distanza massima di cluster
 // è inferiore a 96 px, quindi basta controllare le celle adiacenti.
-const GRID_CELL_SIZE = 96;
+const GRID_CELL_SIZE = 120;
 
 
 export default function MapView({
