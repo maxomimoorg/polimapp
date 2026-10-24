@@ -690,7 +690,7 @@ function buildClusters(items: ScreenBookmark[]) {
           );
           const latLng = map.containerPointToLatLng(point);
           cbRef.current.onCreate(latLng.lat, latLng.lng);
-        }, 750);
+        }, 1900);
       });
 
       element.addEventListener("pointermove", (event: PointerEvent) => {
