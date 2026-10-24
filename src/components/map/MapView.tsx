@@ -44,7 +44,7 @@ const MAX_CLUSTER_DISTANCE_RATIO = 0.7;
 
 // Griglia usata solo per cercare rapidamente i leader vicini.
 // Con le dimensioni attuali dei marker, la distanza massima di cluster
-// è inferiore a 96 px, quindi basta controllare le celle adiacenti.
+// se è inferiore a grid_cell_size px, quindi basta controllare le celle adiacenti.
 const GRID_CELL_SIZE = 100;
 
 
