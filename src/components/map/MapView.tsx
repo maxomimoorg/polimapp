@@ -33,8 +33,20 @@ interface ScreenBookmark {
   radius: number;
 }
 
+// Due marker devono sovrapporsi almeno per questa frazione dell'area
+// del marker più piccolo per essere candidati al raggruppamento.
 const SIGNIFICANT_OVERLAP_RATIO = 0.30;
+
+// Distanza massima tra un segnalibro e il leader a cui può unirsi.
+// È moltiplicata per la somma dei loro raggi: 0.5 significa che
+// i centri devono essere a non più di metà della somma dei raggi.
+const MAX_CLUSTER_DISTANCE_RATIO = 0.6;
+
+// Griglia usata solo per cercare rapidamente i leader vicini.
+// Con le dimensioni attuali dei marker, la distanza massima di cluster
+// è inferiore a 96 px, quindi basta controllare le celle adiacenti.
 const GRID_CELL_SIZE = 96;
+
 
 export default function MapView({
   bookmarks,
@@ -303,73 +315,81 @@ export default function MapView({
     return categoryRank(a, ranks) - categoryRank(b, ranks);
   }
 
-  function buildClusters(items: ScreenBookmark[]) {
-    const parent = new Map<string, string>();
-    const byId = new Map(items.map((item) => [item.bookmark.id, item]));
-    const grid = new Map<string, ScreenBookmark[]>();
+function buildClusters(items: ScreenBookmark[]) {
+  // I segnalibri più prioritari vengono esaminati per primi e hanno
+  // quindi precedenza nel diventare leader.
+  const ranks = new Map(categoryOrderRef.current.map((id, index) => [id, index]));
+  const orderedItems = [...items].sort((a, b) =>
+    compareLeaderPriority(a.bookmark, b.bookmark, ranks),
+  );
 
-    const find = (id: string): string => {
-      const current = parent.get(id);
-      if (!current || current === id) return id;
+  // La griglia contiene SOLO i leader, mai i segnalibri già nascosti
+  // dentro un gruppo. Questo impedisce le concatenazioni A→B→C:
+  // ogni segnalibro deve essere vicino direttamente al leader.
+  const leaderGrid = new Map<string, ScreenBookmark[]>();
 
-      const root = find(current);
-      parent.set(id, root);
-      return root;
-    };
+  // Per ogni leader conserva i segnalibri nascosti che gli appartengono.
+  // Un array vuoto indica che quel leader, per ora, non nasconde altri punti.
+  const leaders = new Map<string, Bookmark[]>();
 
-    const union = (a: string, b: string) => {
-      const rootA = find(a);
-      const rootB = find(b);
-      if (rootA !== rootB) parent.set(rootB, rootA);
-    };
+  for (const item of orderedItems) {
+    const cellX = Math.floor(item.x / GRID_CELL_SIZE);
+    const cellY = Math.floor(item.y / GRID_CELL_SIZE);
 
-    for (const item of items) {
-      const id = item.bookmark.id;
-      parent.set(id, id);
+    let bestLeader: ScreenBookmark | undefined;
+    let bestDistance = Number.POSITIVE_INFINITY;
 
-      const cellX = Math.floor(item.x / GRID_CELL_SIZE);
-      const cellY = Math.floor(item.y / GRID_CELL_SIZE);
+    // Cerca leader solo nella cella del segnalibro e nelle otto adiacenti.
+    // Il limite massimo attuale è inferiore a GRID_CELL_SIZE, quindi
+    // questa ricerca trova tutti i leader che potrebbero essere candidati.
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const nearbyLeaders = leaderGrid.get(`${cellX + dx}:${cellY + dy}`) ?? [];
 
-      for (let dx = -1; dx <= 1; dx += 1) {
-        for (let dy = -1; dy <= 1; dy += 1) {
-          const nearby = grid.get(`${cellX + dx}:${cellY + dy}`) ?? [];
+        for (const candidate of nearbyLeaders) {
+          const distance = Math.hypot(item.x - candidate.x, item.y - candidate.y);
+          const maxDistance =
+            (item.radius + candidate.radius) * MAX_CLUSTER_DISTANCE_RATIO;
 
-          for (const other of nearby) {
-            if (overlapIsSignificant(item, other)) {
-              union(id, other.bookmark.id);
-            }
+          // Per unirsi a un gruppo il segnalibro deve:
+          // 1. essere abbastanza vicino al leader;
+          // 2. sovrapporsi visibilmente al leader secondo la regola esistente.
+          if (
+            distance > maxDistance ||
+            !overlapIsSignificant(item, candidate)
+          ) {
+            continue;
+          }
+
+          // Se più leader sono idonei, scegli quello più vicino.
+          if (distance < bestDistance) {
+            bestLeader = candidate;
+            bestDistance = distance;
           }
         }
       }
-
-      const key = `${cellX}:${cellY}`;
-      const cell = grid.get(key) ?? [];
-      cell.push(item);
-      grid.set(key, cell);
     }
 
-    const components = new Map<string, Bookmark[]>();
-
-    for (const item of items) {
-      const root = find(item.bookmark.id);
-      const members = components.get(root) ?? [];
-      members.push(item.bookmark);
-      components.set(root, members);
+    if (bestLeader) {
+      // Il membro viene associato direttamente al leader scelto.
+      // Non potrà a sua volta attirare altri segnalibri nel gruppo.
+      leaders.get(bestLeader.bookmark.id)!.push(item.bookmark);
+      continue;
     }
 
-    // Il primo elemento secondo la gerarchia diventa il leader.
-    const ranks = new Map(categoryOrderRef.current.map((id, index) => [id, index]));
-    const leaders = new Map<string, Bookmark[]>();
+    // Nessun leader vicino e idoneo: questo segnalibro diventa
+    // un nuovo leader visibile sulla mappa.
+    leaders.set(item.bookmark.id, []);
 
-    for (const component of components.values()) {
-      component.sort((a, b) => compareLeaderPriority(a, b, ranks));
-      const [leader, ...hidden] = component;
-
-      if (leader) leaders.set(leader.id, hidden);
-    }
-
-    return { leaders, byId };
+    const cellKey = `${cellX}:${cellY}`;
+    const cellLeaders = leaderGrid.get(cellKey) ?? [];
+    cellLeaders.push(item);
+    leaderGrid.set(cellKey, cellLeaders);
   }
+
+  return { leaders };
+}
+
 
   function layout() {
     const L = LRef.current;
